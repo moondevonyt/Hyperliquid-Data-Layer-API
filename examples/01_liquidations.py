@@ -207,14 +207,14 @@ def display_coin_breakdown(api):
                 table.add_column("📈 Long $", style="green", justify="right", width=12)
                 table.add_column("📉 Short $", style="red", justify="right", width=12)
                 table.add_column("📊 Long/Short", width=24)
-                sorted_coins = sorted(by_coin.items(), key=lambda x: x[1].get('total_value', 0) if isinstance(x[1], dict) else 0, reverse=True)
+                sorted_coins = sorted(by_coin.items(), key=lambda x: x[1].get('total_value_usd', x[1].get('total_value', x[1].get('count', 0))) if isinstance(x[1], dict) else 0, reverse=True)
                 coin_emoji = {'BTC': '₿', 'ETH': 'Ξ', 'SOL': '◎', 'HYPE': '🔥', 'XRP': '✕', 'SUI': '💧', 'AVAX': '🔺', 'ARB': '🔵'}
                 for coin, coin_data in sorted_coins[:10]:
                     if isinstance(coin_data, dict):
-                        count = coin_data.get('count', 0)
-                        total_value = coin_data.get('total_value', 0)
-                        long_value = coin_data.get('long_value', 0)
-                        short_value = coin_data.get('short_value', 0)
+                        count = coin_data.get('count', coin_data.get('total_count', 0))
+                        total_value = coin_data.get('total_value_usd', coin_data.get('total_value', coin_data.get('total_usd', 0)))
+                        long_value = coin_data.get('long_value_usd', coin_data.get('long_value', coin_data.get('long_usd', 0)))
+                        short_value = coin_data.get('short_value_usd', coin_data.get('short_value', coin_data.get('short_usd', 0)))
                         total = long_value + short_value if (long_value + short_value) > 0 else 1
                         long_pct = long_value / total
                         green_bars, red_bars = int(long_pct * 20), 20 - int(long_pct * 20)

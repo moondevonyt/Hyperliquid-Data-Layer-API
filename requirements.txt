@@ -2,3 +2,7 @@ requests
 rich
 python-dotenv
 pandas
+
+# AI Swarm Agent (requires OPENROUTER_API_KEY in .env)
+openai
+termcolor

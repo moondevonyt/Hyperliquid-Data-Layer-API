@@ -50,3 +50,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# AI Swarm Agent data (results may contain API responses)
+ai_agents/data/

@@ -74,6 +74,7 @@ This data layer gives you access to everything Wall Street kept hidden:
 | **Any Wallet's Positions** | Look up any Hyperliquid address and see their full portfolio |
 | **Trade History** | Get complete fill history for any wallet |
 | **HLP Strategies** | See inside Hyperliquid's $210M+ market-making protocol |
+| **HLP Sentiment** | THE BIG ONE! Z-scores showing retail positioning (squeeze signals) |
 | **Order Flow** | Buy pressure vs sell pressure, cumulative delta |
 | **Live Prices** | Real-time tick data for all major coins |
 | **Blockchain Events** | Transfers, swaps, deposits - as they happen |
@@ -135,8 +136,105 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `14_multi_liquidations.py` | Combined liqs from Hyperliquid, Binance, Bybit, OKX |
 | `15_buyers.py` | $5k+ buyers on HYPE/SOL/XRP/ETH (buyers only - accumulation signals!) |
 | `16_depositors.py` | All Hyperliquid depositors - canonical list of bridged addresses |
+| `17_hlp_sentiment.py` | THE BIG ONE! HLP z-scores showing retail positioning |
+| `18_hlp_analytics.py` | HLP liquidators, market maker, timing, correlation |
 
 See the [examples/README.md](examples/README.md) for the API reference, or visit **https://moondev.com/docs** for the full documentation.
+
+---
+
+## AI Swarm Agent (Supplementary Tool)
+
+**Optional: Get analysis from 6+ AI models simultaneously.**
+
+The main feature of this repo is the data layer API itself - the examples above show you how to access institutional-grade data. This AI Swarm Agent is a supplementary tool to help you understand and explore what's available.
+
+This repo includes an AI swarm agent that can:
+- **Chat** with a Director AI that understands all 40+ API endpoints
+- **Propose** analysis plans using the available data
+- **Execute** multi-model analysis via OpenRouter (Claude, GPT, Gemini, Qwen, and more)
+
+### Quick Start
+
+```bash
+# Add to your .env (one key for everything!):
+OPENROUTER_API_KEY=your_openrouter_key_here
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run it!
+python ai_agents/run.py
+```
+
+### Example Session
+
+```
+🌙 Moon Dev's Director Agent
+==================================================
+
+> What can I do with these APIs?
+
+You can analyze Hyperliquid data including:
+- Real-time liquidations from 4 exchanges
+- 148 symbols with whale positions
+- HLP sentiment (THE BIG ONE) - retail positioning signals
+- Smart money vs dumb money rankings
+- Order flow and trade data
+...
+
+> Is there a short squeeze brewing on BTC?
+
+[PLAN]
+1. get_hlp_sentiment() - Check retail positioning
+2. get_liquidations("24h") - Recent liquidation pressure
+3. get_smart_money_signals("1h") - Smart money activity
+
+📋 Proceed with this plan? [y/n] > y
+
+📡 Fetching data from Moon Dev API...
+   ✅ get_hlp_sentiment()
+   ✅ get_liquidations("24h")
+   ✅ get_smart_money_signals("1h")
+
+🌊 Sending to AI Swarm for analysis...
+   ✅ Claude Opus 4.5
+   ✅ GPT-5 Mini
+   ✅ Qwen3 Max
+   ✅ GLM 4.6
+   ✅ Gemini 2.5 Flash
+   ✅ DeepSeek R1
+
+============================================================
+🤖 AI SWARM RESPONSES
+============================================================
+
+💡 Claude Opus 4.5:
+Based on the HLP z-score of +2.3, retail is heavily short. Combined with
+$45M in short liquidations over 24h, there's building squeeze pressure...
+
+💡 GPT-5 Mini:
+The sentiment data shows extreme short positioning. Smart money signals
+are net bullish. Classic squeeze setup forming...
+
+💡 Qwen3 Max:
+Cross-referencing HLP delta with liquidation data suggests accumulation
+by market makers while retail is betting against the trend...
+
+[More AI responses...]
+
+============================================================
+🌙 Analysis complete! - Moon Dev
+```
+
+### Why This Matters
+
+You now have:
+- **Institutional-grade data** from the Hyperliquid Data Layer
+- **Multi-perspective AI analysis** from 6+ different models
+- **One simple interface** to explore and analyze everything
+
+This is institutional-grade alpha. The data costs hedge funds thousands per month. The AI swarm gives you perspectives from the best models in the world. And it's all available right here.
 
 ---
 

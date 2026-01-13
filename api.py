@@ -64,6 +64,11 @@ HLP (HYPERLIQUIDITY PROVIDER) DATA:
 - /api/hlp/positions/history            - Position snapshots over time
 - /api/hlp/liquidators                  - Liquidator activation events
 - /api/hlp/deltas                       - Net exposure changes over time
+- /api/hlp/sentiment                    - THE BIG ONE! Net delta with z-scores and signals
+- /api/hlp/liquidators/status           - Real-time liquidator status (active/idle + PnL)
+- /api/hlp/market-maker                 - Strategy B tracker for BTC/ETH/SOL
+- /api/hlp/timing                       - Hourly/session profitability analysis
+- /api/hlp/correlation                  - Delta-price correlation by coin
 
 Authentication:
 --------------
@@ -425,6 +430,65 @@ class MoonDevAPI:
         """
         params = f"?hours={hours}" if hours != 24 else ""
         response = self._get(f"/api/hlp/deltas{params}")
+        return response.json()
+
+    def get_hlp_sentiment(self):
+        """
+        Get HLP sentiment indicator - THE BIG ONE!
+
+        Returns z-scores showing how positioned HLP is vs historical norms.
+        Z-score of 2.2 = HLP is 2.2σ more long than usual = retail heavily SHORT.
+
+        Returns:
+            dict with:
+                - net_delta: Current net exposure
+                - z_score: Standard deviations from mean
+                - signal: Human readable signal (e.g., "Retail heavily SHORT")
+                - percentile: Where current delta falls historically
+        """
+        response = self._get("/api/hlp/sentiment")
+        return response.json()
+
+    def get_hlp_liquidator_status(self):
+        """
+        Get real-time HLP liquidator status.
+
+        Shows which liquidators are active/idle and their PnL.
+
+        Returns:
+            dict with liquidator addresses, status (active/idle), and PnL data
+        """
+        response = self._get("/api/hlp/liquidators/status")
+        return response.json()
+
+    def get_hlp_market_maker(self):
+        """
+        Get HLP Strategy B market maker tracker for BTC/ETH/SOL.
+
+        Returns:
+            dict with market maker positions and activity for major coins
+        """
+        response = self._get("/api/hlp/market-maker")
+        return response.json()
+
+    def get_hlp_timing(self):
+        """
+        Get HLP timing analysis - hourly/session profitability.
+
+        Returns:
+            dict with profitability breakdown by hour and trading session
+        """
+        response = self._get("/api/hlp/timing")
+        return response.json()
+
+    def get_hlp_correlation(self):
+        """
+        Get HLP delta-price correlation analysis by coin.
+
+        Returns:
+            dict with correlation data showing how HLP delta relates to price moves
+        """
+        response = self._get("/api/hlp/correlation")
         return response.json()
 
     # ==================== SMART MONEY ====================

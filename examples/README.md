@@ -24,6 +24,8 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `14_multi_liquidations.py` | Multi-Exchange | Combined liqs from Hyperliquid, Binance, Bybit, OKX |
 | `15_buyers.py` | Buyer Watcher | $5k+ buyers on HYPE/SOL/XRP/ETH (buyers only!) |
 | `16_depositors.py` | Depositors | All Hyperliquid depositors - every address that bridged |
+| `17_hlp_sentiment.py` | HLP Sentiment | THE BIG ONE! Z-scores and retail positioning signals |
+| `18_hlp_analytics.py` | HLP Analytics | Liquidator status, market maker, timing, correlation |
 
 ---
 
@@ -169,6 +171,11 @@ response = requests.get('https://api.moondev.com/api/trades.json?api_key=YOUR_AP
 | `GET /api/hlp/positions/history?hours=N` | Position snapshots over time |
 | `GET /api/hlp/liquidators` | Liquidator activation events |
 | `GET /api/hlp/deltas?hours=N` | Net exposure changes over time |
+| `GET /api/hlp/sentiment` | **THE BIG ONE!** Z-scores and retail positioning signals |
+| `GET /api/hlp/liquidators/status` | Real-time liquidator status (active/idle + PnL) |
+| `GET /api/hlp/market-maker` | Strategy B tracker for BTC/ETH/SOL |
+| `GET /api/hlp/timing` | Hourly/session profitability analysis |
+| `GET /api/hlp/correlation` | Delta-price correlation by coin |
 
 ---
 
@@ -240,6 +247,13 @@ hlp_trade_stats = api.get_hlp_trade_stats()          # Volume/fee stats
 hlp_history = api.get_hlp_position_history(hours=24) # Position snapshots
 hlp_liquidators = api.get_hlp_liquidators()          # Liquidator events
 hlp_deltas = api.get_hlp_deltas(hours=24)            # Net exposure changes
+
+# === HLP ADVANCED ANALYTICS (NEW!) ===
+sentiment = api.get_hlp_sentiment()                  # THE BIG ONE! Z-scores & signals
+liq_status = api.get_hlp_liquidator_status()         # Real-time liquidator status
+market_maker = api.get_hlp_market_maker()            # Strategy B (BTC/ETH/SOL)
+timing = api.get_hlp_timing()                        # Hourly/session profitability
+correlation = api.get_hlp_correlation()              # Delta-price correlation
 ```
 
 ---
@@ -325,6 +339,39 @@ python api_examples/12_hlp_positions.py --summary
 - Liquidator monitoring (activation events)
 - Net exposure delta tracking over time
 - Date range: Nov 3, 2025 to present
+
+### 17_hlp_sentiment.py - THE BIG ONE! Retail Positioning
+
+Track what retail is actually doing by watching HLP's counter-positioning:
+
+```bash
+python examples/17_hlp_sentiment.py
+```
+
+**Features:**
+- Z-score indicator showing how extreme current positioning is
+- Signal interpretation (short squeeze potential, long squeeze potential, neutral)
+- Visual z-score bar (-3σ to +3σ)
+- Historical context (mean, std dev, range)
+- Action suggestions based on positioning
+
+**Key Insight:**
+- Z-Score > +2.0 = HLP unusually LONG = Retail heavily SHORT = Buy signal
+- Z-Score < -2.0 = HLP unusually SHORT = Retail heavily LONG = Sell signal
+
+### 18_hlp_analytics.py - HLP Advanced Analytics
+
+Deep analytics on HLP operations:
+
+```bash
+python examples/18_hlp_analytics.py
+```
+
+**Features:**
+- Liquidator status (active/idle, PnL tracking)
+- Strategy B market maker positions (BTC/ETH/SOL)
+- Timing analysis (best/worst hours, session profitability)
+- Delta-price correlation by coin
 
 ---
 
