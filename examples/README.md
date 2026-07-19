@@ -32,6 +32,7 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `24_position_snapshots.py` | Position Snapshots | Positions near liquidation - squeeze signals |
 | `25_ai_chat.py` | AI Chat | OpenAI-compatible AI API - drop-in replacement |
 | `26_hip3_funding.py` | HIP3 Funding | Funding rates for stocks, commodities, ETFs across dexes |
+| `27_bulk_binance_liquidations.py` | Bulk Binance Liqs | 35M+ historical Binance liquidations + live feed (Quant Elite) - coverage-aware download |
 | `35_ohlcv_data.py` | OHLCV Data | Universe + single-symbol and multi-symbol bars from the new bars layer |
 | `35_btc_tick_stream.py` | BTC Tick Stream | Live BTC tick tape with rolling stats and JSONL sink for bots |
 | `34_polymarket_traders.py` | Polymarket Traders | **NEW!** Profitable Polymarket traders by 7-day P&L, discovery sources |
@@ -153,6 +154,26 @@ Combines Hyperliquid, Binance, Bybit, OKX with Live + Archive architecture.
 | `GET /api/okx_liquidations/{timeframe}.json` | OKX liquidations |
 
 **Timeframes:** 10m, 1h, 4h, 12h, 24h, 2d, 5d (live) | 7d, 14d, 30d (archive)
+
+### BULK BINANCE LIQUIDATIONS (Quant Elite)
+
+Historical + live Binance Futures liquidations - 35 million+ records back to June 2024. See `27_bulk_binance_liquidations.py`.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/binance_liquidations/coverage.json` | Data coverage: segment boundaries + gap info (standard key works) |
+| `GET /api/bulk/binance_liquidations` | Bulk paginated liquidation data (Quant Elite `_qe` key only) |
+
+⚠️ **Data gap: 2026-04-23 → 2026-07-18 (permanent).** The dataset has two segments - a frozen historical archive (2024-06-04 → 2026-04-23) and the live feed (2026-07-18 onward) - with no data in between. Always hit the coverage endpoint first for exact, current boundaries.
+
+**Selecting a segment:**
+| Goal | Request |
+|------|---------|
+| Historical archive only | `?end=2026-04-23` |
+| Live feed only | `?start=2026-07-18` |
+| Everything | no date filter (gap rows simply don't exist) |
+
+**Bulk params:** `start`, `end` (YYYY-MM-DD or unix ms), `symbol` (e.g. BTCUSDT), `side` (BUY = short liquidated, SELL = long liquidated), `min_usd`, `limit` (default 10k, max 100k), `offset`. Page with `limit` + `offset`; follow `next_offset` until `has_more` is false.
 
 ### HIP3 LIQUIDATIONS (Stocks, Commodities, Indices, FX)
 
