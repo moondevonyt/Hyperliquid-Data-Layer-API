@@ -52,6 +52,7 @@ SMART MONEY:
 MULTI-EXCHANGE LIQUIDATIONS:
 - /api/all_liquidations/{timeframe}.json     - Combined liquidations from ALL exchanges
 - /api/all_liquidations/stats.json           - Combined stats across all exchanges
+- /api/all_liquidations/totals.json          - Rolling totals w/ long/short split (5m, 15m, 1h, 2h, 3h, 4h)
 - /api/binance_liquidations/{timeframe}.json - Binance Futures liquidations
 - /api/bybit_liquidations/{timeframe}.json   - Bybit liquidations
 - /api/okx_liquidations/{timeframe}.json     - OKX liquidations
@@ -1097,6 +1098,21 @@ class MoonDevAPI:
                 - by_side: Long vs short breakdown
         """
         response = self._get("/api/all_liquidations/stats.json")
+        return response.json()
+
+    def get_all_liquidation_totals(self):
+        """
+        Get rolling liquidation totals across ALL exchanges with full long/short split.
+        Updates every 20 seconds. 🌙 Moon Dev's favorite squeeze detector!
+
+        Returns:
+            dict with 'windows' (5m, 15m, 1h, 2h, 3h, 4h), each containing:
+                - total_volume_usd / total_count
+                - long_volume_usd / long_count
+                - short_volume_usd / short_count
+                - by_exchange: same breakdown per exchange (binance, bybit, okx, hyperliquid)
+        """
+        response = self._get("/api/all_liquidations/totals.json")
         return response.json()
 
     def get_binance_liquidations(self, timeframe="1h"):

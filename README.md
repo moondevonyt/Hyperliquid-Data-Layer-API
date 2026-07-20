@@ -164,6 +164,7 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `25_ai_chat.py` | **NEW!** AI Chat API - OpenAI-compatible drop-in replacement |
 | `35_ohlcv_data.py` | Universe + single-symbol and multi-symbol bars from the new OHLCV layer |
 | `35_btc_tick_stream.py` | Live BTC tick stream with rolling tape + JSONL sink for bots |
+| `37_liquidation_totals.py` | **NEW!** Long/short liquidation totals across 6 rolling windows (5m→4h) + squeeze detector |
 
 See the [examples/README.md](examples/README.md) for the API reference, or visit **https://moondev.com/docs** for the full documentation.
 
@@ -411,6 +412,7 @@ The all-liquidations API combines data from Hyperliquid, Binance, Bybit, and OKX
 | `2d.json` | Last 2 days |
 | `5d.json` | Last 5 days |
 | `stats.json` | Summary statistics |
+| `totals.json` | Rolling totals w/ full long/short split — 5m, 15m, 1h, 2h, 3h, 4h windows + per-exchange breakdown (updates every 20s) |
 
 ### Archive Endpoints (15-minute updates)
 | Endpoint | Description |

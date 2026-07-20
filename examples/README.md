@@ -37,6 +37,7 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `35_btc_tick_stream.py` | BTC Tick Stream | Live BTC tick tape with rolling stats and JSONL sink for bots |
 | `34_polymarket_traders.py` | Polymarket Traders | **NEW!** Profitable Polymarket traders by 7-day P&L, discovery sources |
 | `36_hl_direct_proxy.py` | HL Direct-Proxy | **NEW!** Drop-in `info.user_state` + `info.open_orders` — no 429s, local node w/ public fallback |
+| `37_liquidation_totals.py` | Liquidation Totals | **NEW!** Long/short split across 6 rolling windows (5m→4h) + squeeze detector, per-exchange breakdown |
 
 ---
 
@@ -138,6 +139,7 @@ Combines Hyperliquid, Binance, Bybit, OKX with Live + Archive architecture.
 | `GET /api/all_liquidations/2d.json` | Last 2 days |
 | `GET /api/all_liquidations/5d.json` | Last 5 days |
 | `GET /api/all_liquidations/stats.json` | Summary statistics |
+| `GET /api/all_liquidations/totals.json` | Rolling totals w/ long/short split (5m, 15m, 1h, 2h, 3h, 4h + per-exchange, 20s updates) |
 
 **Archive Endpoints (15-minute updates):**
 | Endpoint | Description |
