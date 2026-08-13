@@ -99,8 +99,6 @@ HYPERLIQUID DIRECT-PROXY (drop-in for HL SDK - tries local node, falls back to p
 HLP (HYPERLIQUIDITY PROVIDER) DATA:
 - /api/hlp/positions                    - All 7 HLP strategy positions + combined net exposure
                                           (optional: ?include_strategies=false for summary only)
-- /api/hlp/trades                       - Historical HLP trade fills (5,000+ collected)
-- /api/hlp/trades/stats                 - Trade volume/fee statistics
 - /api/hlp/positions/history            - Position snapshots over time
 - /api/hlp/liquidators                  - Liquidator activation events
 - /api/hlp/deltas                       - Net exposure changes over time
@@ -109,7 +107,9 @@ HLP (HYPERLIQUIDITY PROVIDER) DATA:
 - /api/hlp/market-maker                 - Strategy B tracker for BTC/ETH/SOL
 - /api/hlp/timing                       - Hourly/session profitability analysis
 - /api/hlp/correlation                  - Delta-price correlation by coin
-- /api/hlp/funding/hip3                 - HIP3 funding rates (stocks, commodities, ETFs)
+
+RETIRED 2026-08-13 (these now return HTTP 410 Gone - use sentiment/positions instead):
+- /api/hlp/funding, /api/hlp/funding/hip3, /api/hlp/trades, /api/hlp/trades/stats
 
 POLYMARKET:
 - /api/poly/profitable-traders          - Profitable Polymarket traders sorted by 7-day P&L ($300+ threshold)
@@ -836,38 +836,9 @@ class MoonDevAPI:
         response = self._get(f"/api/hlp/positions{params}")
         return response.json()
 
-    def get_hlp_trades(self, limit=100):
-        """
-        Get historical HLP trade fills across all strategies.
-
-        Args:
-            limit: Number of trades to return (default: 100)
-
-        Returns:
-            dict with:
-                - trades: List of trade fill objects
-                - total: Total trades available
-                - strategies: Which strategies have trades
-        """
-        params = f"?limit={limit}" if limit != 100 else ""
-        response = self._get(f"/api/hlp/trades{params}")
-        return response.json()
-
-    def get_hlp_trade_stats(self):
-        """
-        Get HLP trade volume and fee statistics.
-
-        Returns:
-            dict with:
-                - total_trades: Total number of trades collected
-                - total_volume: Total USD volume traded
-                - total_fees: Total fees paid
-                - date_range: First and last trade timestamps
-                - by_strategy: Volume breakdown by strategy
-                - by_coin: Volume breakdown by coin
-        """
-        response = self._get("/api/hlp/trades/stats")
-        return response.json()
+    # RETIRED 2026-08-13 - Moon Dev: get_hlp_trades() and get_hlp_trade_stats() are gone.
+    # /api/hlp/trades and /api/hlp/trades/stats now return HTTP 410 Gone.
+    # Use get_hlp_sentiment() or get_hlp_positions() instead.
 
     def get_hlp_position_history(self, hours=24):
         """
@@ -1037,24 +1008,9 @@ class MoonDevAPI:
         response = self._get("/api/hlp/flip-stats")
         return response.json()
 
-    def get_hlp_funding_hip3(self):
-        """
-        Get HIP3 funding rate analysis for tokenized assets (stocks, commodities, ETFs).
-
-        Returns funding rates across xyz and cash dexes with top positive/negative,
-        tracked symbol rates, and 24h history.
-
-        Returns:
-            dict with:
-                - top_positive_funding: Top 10 highest funding rate symbols
-                - top_negative_funding: Top 10 lowest funding rate symbols
-                - current_rates: Rates for tracked HIP3 symbols (GOLD, TSLA, NVDA, etc.)
-                - all_rates: Every HIP3 symbol with rate, annualized %, mark price, OI
-                - history_24h: Up to 100 recent funding rate snapshots
-                - timestamp: Last update time
-        """
-        response = self._get("/api/hlp/funding/hip3")
-        return response.json()
+    # RETIRED 2026-08-13 - Moon Dev: get_hlp_funding_hip3() is gone.
+    # /api/hlp/funding and /api/hlp/funding/hip3 now return HTTP 410 Gone.
+    # Use get_hlp_sentiment() or get_hlp_positions() instead.
 
     # ==================== SMART MONEY ====================
     def get_smart_money_rankings(self):
@@ -1921,35 +1877,7 @@ def test_all():
     except Exception as e:
         print(f"⚠️  HLP positions: {e}")
 
-    # HLP Trade Stats
-    try:
-        trade_stats = api.get_hlp_trade_stats()
-        if isinstance(trade_stats, dict):
-            total_trades = trade_stats.get('total_trades', 0)
-            total_volume = trade_stats.get('total_volume', 0)
-            total_fees = trade_stats.get('total_fees', 0)
-            print(f"✅ HLP Trade Stats:")
-            print(f"   Total Trades: {total_trades:,}")
-            print(f"   Total Volume: ${total_volume:,.2f}")
-            print(f"   Total Fees: ${total_fees:,.2f}")
-    except Exception as e:
-        print(f"⚠️  HLP trade stats: {e}")
-
-    # HLP Trades
-    try:
-        trades = api.get_hlp_trades(limit=5)
-        if isinstance(trades, dict):
-            trade_list = trades.get('trades', [])
-            total = trades.get('total', len(trade_list))
-            print(f"✅ HLP Trades: {total:,} total, showing {len(trade_list)}")
-            for t in trade_list[:3]:
-                coin = t.get('coin', '?')
-                side = t.get('side', '?')
-                sz = float(t.get('sz', 0))
-                px = float(t.get('px', 0))
-                print(f"      {coin} {'BUY' if side == 'B' else 'SELL'} {sz:.4f} @ ${px:,.2f}")
-    except Exception as e:
-        print(f"⚠️  HLP trades: {e}")
+    # Moon Dev note: HLP trades + trade stats demos removed - endpoints retired 2026-08-13
 
     # HLP Liquidators
     try:

@@ -191,13 +191,7 @@ def get_all_tests(api):
          lambda: api.get_hlp_positions(include_strategies=False),
          lambda r: isinstance(r, dict)),
 
-        ("HLP Trades",
-         lambda: api.get_hlp_trades(limit=5),
-         lambda r: r is not None),
-
-        ("HLP Trade Stats",
-         lambda: api.get_hlp_trade_stats(),
-         lambda r: isinstance(r, dict)),
+        # Moon Dev: HLP Trades + Trade Stats checks removed - endpoints retired 2026-08-13
 
         ("HLP Liquidators",
          lambda: api.get_hlp_liquidators(),

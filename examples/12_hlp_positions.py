@@ -1,17 +1,20 @@
 """
 Moon Dev's HLP Dashboard - Complete HyperLiquidity Provider Analysis
 =====================================================================
-Beautiful terminal dashboard for all HLP data: positions, trades, liquidators, deltas
+Beautiful terminal dashboard for all HLP data: positions, liquidators, deltas
 
 Built with love by Moon Dev
 
 HLP is Hyperliquid's native market-making protocol with ~$210M+ in positions.
-This dashboard shows all 7 HLP strategies, trade history, liquidator events, and exposure tracking.
+This dashboard shows all 7 HLP strategies, liquidator events, and exposure tracking.
+
+RETIRED 2026-08-13: the trade history sections are gone. /api/hlp/trades and
+/api/hlp/trades/stats now return HTTP 410 Gone. Use /api/hlp/sentiment and
+/api/hlp/positions instead.
 
 Usage: python 12_hlp_positions.py [mode]
        python 12_hlp_positions.py              # Full dashboard (all sections)
        python 12_hlp_positions.py --positions  # Positions only
-       python 12_hlp_positions.py --trades     # Trade history only
        python 12_hlp_positions.py --summary    # Quick summary only
 
 Data Source: Moon Dev's local Hyperliquid node (blazing fast!)
@@ -55,7 +58,7 @@ def create_banner():
     return Panel(
         Align.center(Text(banner, style="bold cyan")),
         title="[bold magenta]MOON DEV'S HLP REVERSE ENGINEERING DASHBOARD[/bold magenta]",
-        subtitle="[dim]All 7 HLP Strategies | Trades | Liquidators | Delta Tracking | ~$210M+ AUM[/dim]",
+        subtitle="[dim]All 7 HLP Strategies | Liquidators | Delta Tracking | ~$210M+ AUM[/dim]",
         border_style="bright_cyan",
         box=box.DOUBLE_EDGE,
         padding=(0, 1)
@@ -105,7 +108,7 @@ def format_timestamp(ts):
 
 
 # ==================== DISPLAY FUNCTIONS ====================
-def display_summary_panels(summary, exposure=None, trade_stats=None, strategies=None):
+def display_summary_panels(summary, exposure=None, strategies=None):
     """Display HLP summary statistics"""
     total_value = summary.get('total_account_value', 0)
     total_positions = summary.get('total_positions', 0)
@@ -166,42 +169,19 @@ def display_summary_panels(summary, exposure=None, trade_stats=None, strategies=
         padding=(1, 2)
     )
 
-    # Trade stats panel (if available)
-    if trade_stats:
-        # Handle nested stats object (API returns {timestamp, stats: {...}})
-        stats = trade_stats.get('stats', trade_stats)
-        by_strategy = stats.get('by_strategy', [])
-
-        # Get total trades directly, calculate volume from by_strategy
-        total_ts_trades = stats.get('total_trades', 0)
-        total_ts_volume = 0
-        total_ts_fees = 0
-        if isinstance(by_strategy, list):
-            for item in by_strategy:
-                if isinstance(item, dict):
-                    total_ts_volume += float(item.get('volume', 0))
-                    total_ts_fees += float(item.get('fees', 0))
-
-        panel3_lines = [
-            f"[bold white]Trade History[/bold white]",
-            "",
-            f"[bold cyan]Total Trades:[/bold cyan] [yellow]{total_ts_trades:,}[/yellow]",
-            f"[bold cyan]Total Volume:[/bold cyan] [yellow]{format_usd(total_ts_volume)}[/yellow]",
-            f"[bold cyan]Total Fees:[/bold cyan] [red]{format_usd(total_ts_fees)}[/red]",
-        ]
-    else:
-        panel3_lines = [
-            "[bold white]Strategy Status[/bold white]",
-            "",
-            "[green]● Active[/green] HLP Strategy A",
-            "[green]● Active[/green] HLP Strategy B",
-            "[dim]○ Idle[/dim]   HLP Liquidators",
-            "[dim]○ Idle[/dim]   HLP Strategy X",
-        ]
+    # Strategy status panel (trade stats panel removed - endpoint retired 2026-08-13)
+    panel3_lines = [
+        "[bold white]Strategy Status[/bold white]",
+        "",
+        "[green]● Active[/green] HLP Strategy A",
+        "[green]● Active[/green] HLP Strategy B",
+        "[dim]○ Idle[/dim]   HLP Liquidators",
+        "[dim]○ Idle[/dim]   HLP Strategy X",
+    ]
 
     panel3 = Panel(
         "\n".join(panel3_lines),
-        title="[bold white]TRADES[/bold white]  [dim cyan]GET https://api.moondev.com/api/hlp/trades/stats[/dim cyan]" if trade_stats else "[bold white]STRATEGIES[/bold white]  [dim cyan]GET https://api.moondev.com/api/hlp/positions[/dim cyan]",
+        title="[bold white]STRATEGIES[/bold white]  [dim cyan]GET https://api.moondev.com/api/hlp/positions[/dim cyan]",
         border_style="bright_magenta",
         box=box.DOUBLE,
         padding=(1, 2)
@@ -271,84 +251,7 @@ def display_combined_positions(combined_positions):
     console.print(Panel(table, title=header, border_style="cyan", padding=(0, 0)))
 
 
-def display_hlp_trades(trades, limit=15):
-    """Display recent HLP trades - compact"""
-    if not trades:
-        return
-
-    table = Table(
-        box=box.SIMPLE_HEAD,
-        border_style="yellow",
-        header_style="bold magenta",
-        padding=(0, 1),
-        show_edge=False
-    )
-
-    table.add_column("Time", style="dim", width=11)
-    table.add_column("Strat", style="cyan", width=10)
-    table.add_column("Coin", style="white", width=6)
-    table.add_column("", width=4)
-    table.add_column("Value", style="yellow", justify="right", width=9)
-
-    for trade in trades[:limit]:
-        if not isinstance(trade, dict):
-            continue
-
-        ts = trade.get('timestamp', 0)
-        strategy = trade.get('strategy_name', 'Unknown').replace("HLP ", "").replace("Strategy ", "")[:10]
-        coin = trade.get('coin', '?')[:6]
-        side = trade.get('side', '?')
-        sz = float(trade.get('size', 0))
-        px = float(trade.get('price', 0))
-        value = float(trade.get('usd_value', sz * px))
-
-        time_str = format_timestamp(ts)[:11]
-        side_text = Text("BUY", style="green") if side in ['B', 'Buy', 'buy'] else Text("SELL", style="red")
-
-        table.add_row(time_str, strategy, coin, side_text, format_usd(value))
-
-    console.print(Panel(table, title=f"[bold yellow]RECENT TRADES[/bold yellow]  [dim cyan]GET https://api.moondev.com/api/hlp/trades[/dim cyan] ({min(len(trades), limit)})", border_style="yellow", padding=(0, 0)))
-
-
-def display_trade_stats(trade_stats):
-    """Display compact trade statistics"""
-    if not trade_stats:
-        return
-
-    # Handle nested stats object
-    stats = trade_stats.get('stats', trade_stats)
-    if not isinstance(stats, dict):
-        return
-
-    total_trades = stats.get('total_trades', 0)
-    date_range = stats.get('data_range', {})
-    by_strategy = stats.get('by_strategy', [])
-
-    # Calculate totals from by_strategy
-    total_volume = sum(float(item.get('volume', 0)) for item in by_strategy if isinstance(item, dict))
-
-    # Format date range
-    first = date_range.get('first', '')
-    last = date_range.get('last', '')
-    if isinstance(first, (int, float)) and first > 1e12:
-        first = datetime.fromtimestamp(first / 1000).strftime("%Y-%m-%d")
-    if isinstance(last, (int, float)) and last > 1e12:
-        last = datetime.fromtimestamp(last / 1000).strftime("%Y-%m-%d")
-
-    # Strategy breakdown compact
-    strat_parts = []
-    if isinstance(by_strategy, list):
-        sorted_strats = sorted(by_strategy, key=lambda x: x.get('volume', 0) if isinstance(x, dict) else 0, reverse=True)
-        for item in sorted_strats[:4]:
-            if isinstance(item, dict):
-                strat = item.get('strategy_name', 'Unknown').replace("HLP ", "").replace("Strategy ", "")
-                vol = item.get('volume', 0)
-                strat_parts.append(f"[cyan]{strat}[/cyan] {format_usd(vol)}")
-
-    header = f"[bold]TRADE STATS[/bold]  [dim cyan]GET https://api.moondev.com/api/hlp/trades/stats[/dim cyan] │ {total_trades:,} trades │ {format_usd(total_volume)} volume │ {first} to {last}"
-    content = " │ ".join(strat_parts) if strat_parts else "[dim]No strategy breakdown[/dim]"
-
-    console.print(Panel(content, title=header, border_style="green", padding=(0, 1)))
+# Moon Dev: display_hlp_trades() and display_trade_stats() removed - endpoints retired 2026-08-13
 
 
 def display_liquidators(liquidators_data):
@@ -540,8 +443,6 @@ def main():
     mode = "full"
     if "--positions" in args:
         mode = "positions"
-    elif "--trades" in args:
-        mode = "trades"
     elif "--summary" in args:
         mode = "summary"
 
@@ -567,22 +468,8 @@ def main():
     # Fetch data based on mode
     with console.status("[bold cyan]Moon Dev: Loading HLP data...[/bold cyan]"):
         hlp_data = api.get_hlp_positions(include_strategies=(mode in ["full", "positions"]))
-        trade_stats = None
-        trades = None
         liquidators = None
         deltas = None
-
-        if mode in ["full", "trades"]:
-            try:
-                trade_stats = api.get_hlp_trade_stats()
-            except Exception as e:
-                console.print(f"[dim]Note: Trade stats unavailable ({e})[/dim]")
-
-            try:
-                trades_data = api.get_hlp_trades(limit=30)
-                trades = trades_data.get('trades', []) if isinstance(trades_data, dict) else []
-            except Exception as e:
-                console.print(f"[dim]Note: Trades unavailable ({e})[/dim]")
 
         if mode == "full":
             try:
@@ -610,7 +497,7 @@ def main():
 
     # Display based on mode
     if mode == "summary":
-        display_summary_panels(summary, exposure=exposure, trade_stats=trade_stats, strategies=strategies)
+        display_summary_panels(summary, exposure=exposure, strategies=strategies)
         display_exposure_visualization(combined_positions)
 
     elif mode == "positions":
@@ -623,17 +510,8 @@ def main():
         if strategies:
             display_strategy_details(strategies)
 
-    elif mode == "trades":
-        display_summary_panels(summary, exposure=exposure, trade_stats=trade_stats, strategies=strategies)
-        console.print()
-        if trade_stats:
-            display_trade_stats(trade_stats)
-        console.print()
-        if trades:
-            display_hlp_trades(trades, limit=30)
-
     else:  # full mode
-        display_summary_panels(summary, exposure=exposure, trade_stats=trade_stats, strategies=strategies)
+        display_summary_panels(summary, exposure=exposure, strategies=strategies)
         console.print()
 
         display_combined_positions(combined_positions)
@@ -641,14 +519,6 @@ def main():
 
         display_exposure_visualization(combined_positions)
         console.print()
-
-        if trade_stats:
-            display_trade_stats(trade_stats)
-            console.print()
-
-        if trades:
-            display_hlp_trades(trades, limit=20)
-            console.print()
 
         if liquidators:
             display_liquidators(liquidators)

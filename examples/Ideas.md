@@ -148,13 +148,13 @@ Built with love by Moon Dev
 
 ## 12_hlp_positions.py - HLP Protocol Positions
 
-**Endpoint:** `/api/hlp/positions`, `/api/hlp/trades`
+**Endpoint:** `/api/hlp/positions`
 
 1. **HLP as Counter-Indicator** - HLP takes the other side of retail trades. If you can see what HLP is positioned, you know what retail is doing. Is fading retail profitable?
 
 2. **Strategy Disagreement** - HLP has multiple strategies. When they're positioned differently on the same asset, what does that mean? Confusion? Hedging? Opportunity?
 
-3. **HLP Trade Size** - When HLP makes unusually large trades, does that tell you anything about market conditions or expected moves?
+3. **HLP Position Size** - When HLP builds an unusually large position in one coin, does that tell you anything about market conditions or expected moves?
 
 ---
 

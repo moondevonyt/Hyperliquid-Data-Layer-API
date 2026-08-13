@@ -150,7 +150,7 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `09_smart_money.py` | Top 100 smart money, Bottom 100 dumb money, trading signals |
 | `10_user_positions.py` | Get all positions for ANY Hyperliquid wallet |
 | `11_user_fills.py` | Historical fills, PnL analysis, win/loss streaks |
-| `12_hlp_positions.py` | All 7 HLP strategies, trades, liquidators, deltas |
+| `12_hlp_positions.py` | All 7 HLP strategies, liquidators, deltas |
 | `13_binance_liquidations.py` | Binance Futures liquidations for comparison |
 | `14_multi_liquidations.py` | Combined liqs from Hyperliquid, Binance, Bybit, OKX |
 | `15_buyers.py` | $5k+ buyers on HYPE/SOL/XRP/ETH (buyers only - accumulation signals!) |

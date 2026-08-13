@@ -70,8 +70,6 @@ AVAILABLE HYPERLIQUID API ENDPOINTS (Moon Dev's Data Layer):
 
 == HLP ANALYTICS (Hyperliquidity Provider ~$210M+) ==
 • get_hlp_positions() - All 7 HLP strategy positions + combined net exposure
-• get_hlp_trades(limit) - Historical HLP trade fills (5,000+ tracked)
-• get_hlp_trade_stats() - Volume and fee statistics
 • get_hlp_position_history(hours) - Position snapshots over time
 • get_hlp_liquidators() - Liquidator activation events
 • get_hlp_deltas(hours) - Net exposure changes over time

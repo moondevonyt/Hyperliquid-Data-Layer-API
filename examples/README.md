@@ -31,7 +31,6 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `21_hip3_market_data.py` | HIP3 Data | OHLCV candles & tick data for 33 TradFi assets |
 | `24_position_snapshots.py` | Position Snapshots | Positions near liquidation - squeeze signals |
 | `25_ai_chat.py` | AI Chat | OpenAI-compatible AI API - drop-in replacement |
-| `26_hip3_funding.py` | HIP3 Funding | Funding rates for stocks, commodities, ETFs across dexes |
 | `27_bulk_binance_liquidations.py` | Bulk Binance Liqs | 35M+ historical Binance liquidations + live feed (Quant Elite) - coverage-aware download |
 | `35_ohlcv_data.py` | OHLCV Data | Universe + single-symbol and multi-symbol bars from the new bars layer |
 | `35_btc_tick_stream.py` | BTC Tick Stream | Live BTC tick tape with rolling stats and JSONL sink for bots |
@@ -361,8 +360,6 @@ Bar behavior:
 |----------|-------------|
 | `GET /api/hlp/positions` | All 7 HLP strategy positions + combined net exposure |
 | `GET /api/hlp/positions?include_strategies=false` | Summary only (faster response) |
-| `GET /api/hlp/trades?limit=N` | Historical HLP trade fills (5,000+ collected) |
-| `GET /api/hlp/trades/stats` | Trade volume/fee statistics |
 | `GET /api/hlp/positions/history?hours=N` | Position snapshots over time |
 | `GET /api/hlp/liquidators` | Liquidator activation events |
 | `GET /api/hlp/deltas?hours=N` | Net exposure changes over time |
@@ -371,7 +368,8 @@ Bar behavior:
 | `GET /api/hlp/market-maker` | Strategy B tracker for BTC/ETH/SOL |
 | `GET /api/hlp/timing` | Hourly/session profitability analysis |
 | `GET /api/hlp/correlation` | Delta-price correlation by coin |
-| `GET /api/hlp/funding/hip3` | HIP3 funding rates (stocks, commodities, ETFs) |
+
+**Retired 2026-08-13** (these return HTTP 410 Gone): `/api/hlp/funding`, `/api/hlp/funding/hip3`, `/api/hlp/trades`, `/api/hlp/trades/stats`. Use `/api/hlp/sentiment` and `/api/hlp/positions` instead.
 
 ### POLYMARKET
 
@@ -549,8 +547,6 @@ fills_all = api.get_user_fills("0x...", limit=-1)   # ALL fills
 # === HLP (HYPERLIQUIDITY PROVIDER) ===
 hlp = api.get_hlp_positions()                        # Full details
 hlp_summary = api.get_hlp_positions(include_strategies=False)  # Summary only
-hlp_trades = api.get_hlp_trades(limit=100)           # Historical trades
-hlp_trade_stats = api.get_hlp_trade_stats()          # Volume/fee stats
 hlp_history = api.get_hlp_position_history(hours=24) # Position snapshots
 hlp_liquidators = api.get_hlp_liquidators()          # Liquidator events
 hlp_deltas = api.get_hlp_deltas(hours=24)            # Net exposure changes
@@ -561,7 +557,7 @@ liq_status = api.get_hlp_liquidator_status()         # Real-time liquidator stat
 market_maker = api.get_hlp_market_maker()            # Strategy B (BTC/ETH/SOL)
 timing = api.get_hlp_timing()                        # Hourly/session profitability
 correlation = api.get_hlp_correlation()              # Delta-price correlation
-hip3_funding = api.get_hlp_funding_hip3()            # HIP3 funding rates (stocks, commodities, ETFs)
+# Retired 2026-08-13: get_hlp_trades(), get_hlp_trade_stats(), get_hlp_funding_hip3()
 
 # === POSITION SNAPSHOTS ===
 btc_snaps = api.get_position_snapshots("BTC", hours=24)           # BTC positions near liq
