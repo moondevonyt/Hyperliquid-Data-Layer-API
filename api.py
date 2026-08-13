@@ -81,6 +81,8 @@ HYPERLIQUID USER DATA:
 MOON DEV USER API (from local node - FAST!):
 - /api/user/{address}/positions         - Get positions via Moon Dev API
 - /api/user/{address}/fills             - Get historical fills (limit: 100-2000, -1 for all)
+                                          (optional: ?minutes=N or ?since_ms=EPOCH_MS time
+                                          window - ~50ms for ANY wallet, always use when polling)
 
 MARKET DATA (replaces Hyperliquid rate-limited calls!):
 - /api/prices                           - All 224 coin prices + funding rates + open interest
@@ -88,6 +90,8 @@ MARKET DATA (replaces Hyperliquid rate-limited calls!):
 - /api/orderbook/{coin}                 - Full L2 orderbook (~20 levels each side)
 - /api/account/{address}                - Full account state (positions, margin, withdrawable)
 - /api/fills/{address}                  - Trade fills in Hyperliquid-compatible format
+                                          (optional: ?startTime=EPOCH_MS - same name/units as
+                                          HL's userFillsByTime - or ?minutes=N)
 - /api/candles/{coin}                   - OHLCV candles (1m, 5m, 15m, 1h, 4h, 1d)
 
 HYPERLIQUID DIRECT-PROXY (drop-in for HL SDK - tries local node, falls back to public):
@@ -127,6 +131,20 @@ Authentication:
 
 Rate Limits: 3,600 requests/min | Data updates every 30 seconds | 60-day retention
 
+Error Codes:
+-----------
+- 401 missing_api_key / invalid_api_key  - No key, or wrong key
+- 401 stream_key_expired                 - Daily moonstream_* key rotated (~24h validity),
+                                           fetch a current key
+- 429 rate_limited                       - Too many requests. Also covers clients retrying
+                                           dead keys: after ~5 explanatory 401s, dead-key
+                                           retries collapse to 2/min per IP
+- 503 fills_scanner_busy                 - Fills scanner at its concurrency limit. Retry
+                                           shortly or use your fallback source. Do NOT treat
+                                           as empty - an empty fills array with HTTP 200 now
+                                           always means the wallet genuinely has no fills
+- 410 endpoint_retired                   - Permanently gone (see RETIRED list above)
+
 Need an API key? https://moondev.com
 """
 
@@ -147,12 +165,16 @@ class MoonDevAPI:
         self.headers = {'X-API-Key': self.api_key} if self.api_key else {}
         self.session = requests.Session()
 
-    def _get(self, endpoint, auth_required=True, params=None):
-        """Make GET request to API"""
+    def _get(self, endpoint, auth_required=True, params=None, timeout=30):
+        """Make GET request to API
+
+        Moon Dev note: timeout is bumped by callers that can legitimately run long,
+        like an un-windowed fills scan on a cold, fill-sparse wallet (~30s).
+        """
         url = f"{self.base_url}{endpoint}"
         headers = self.headers if auth_required else {}
 
-        response = self.session.get(url, headers=headers, params=params, timeout=30)
+        response = self.session.get(url, headers=headers, params=params, timeout=timeout)
         response.raise_for_status()
         return response
 
@@ -480,23 +502,42 @@ class MoonDevAPI:
         response = self._get(f"/api/user/{address}/positions")
         return response.json()
 
-    def get_user_fills(self, address, limit=100):
+    def get_user_fills(self, address, limit=100, minutes=None, since_ms=None):
         """
         Get historical fills/trades for a Hyperliquid wallet via Moon Dev's API.
 
         This uses Moon Dev's local node data - scans hourly fill archives.
-        Extremely fast: ~300ms even for 32,000+ fills!
+
+        SPEED (Moon Dev says: always pass a window when polling!):
+            Passing a time window makes every wallet equally fast (~50ms) no matter
+            how many fills it has. Without a window, first contact with a fill-sparse
+            wallet forces a full 3-day archive scan that can take ~30s (it still
+            returns 200, it is just slow). For deep history, page backwards with
+            since_ms windows instead of one giant call.
 
         Args:
             address: Hyperliquid wallet address (e.g., "0x...")
             limit: Number of fills to return (default: 100, max: 2000, use -1 for ALL fills)
+            minutes: Only fills from the last N minutes (0-4320). Activates the fast lane.
+            since_ms: Only fills at/after this epoch-ms timestamp. Same fast lane.
+                      If both are given, the later (narrower) one wins.
 
         Returns:
             dict with:
                 - fills: list of fill objects with trade details
-                - total: total number of fills found
+                - count: number of fills returned
+                - summary: total_pnl, total_volume, total_fees
                 - limit: limit that was applied
                 - address: wallet address queried
+                - timestamp: server response time
+                - since_ms: resolved window start (None when no window was passed),
+                            so you can assert the server honored your window
+
+        Raises:
+            requests.HTTPError 503 with code "fills_scanner_busy" when the scanner is
+            at its concurrency limit. Retry shortly or use your fallback source - do
+            NOT treat it as empty. An empty fills list with HTTP 200 now genuinely
+            means the wallet has no fills.
 
         Example fill object:
             {
@@ -513,8 +554,17 @@ class MoonDevAPI:
                 'fee': '1.5'               # fee paid
             }
         """
-        params = f"?limit={limit}" if limit != 100 else ""
-        response = self._get(f"/api/user/{address}/fills{params}")
+        params = {}
+        if limit != 100:
+            params['limit'] = limit
+        if minutes is not None:
+            params['minutes'] = minutes
+        if since_ms is not None:
+            params['since_ms'] = since_ms
+
+        # No window means a possible cold 3-day archive scan - give it room
+        timeout = 30 if (minutes is not None or since_ms is not None) else 90
+        response = self._get(f"/api/user/{address}/fills", params=params, timeout=timeout)
         return response.json()
 
     # ==================== POSITION SNAPSHOTS ====================
@@ -654,16 +704,27 @@ class MoonDevAPI:
         response = self._get(f"/api/account/{address}")
         return response.json()
 
-    def get_fills(self, address, limit=100):
+    def get_fills(self, address, limit=100, start_time=None, minutes=None):
         """
         Get trade fills for any wallet in Hyperliquid-compatible format.
 
         This is the DROP-IN REPLACEMENT for Hyperliquid's userFills call.
         Uses Moon Dev's local node - faster and no rate limits!
 
+        Windowed queries are ~50ms for any wallet. Un-windowed first contact with a
+        fill-sparse wallet can take ~30s (full 3-day archive scan). Moon Dev says:
+        pass a window whenever you poll.
+
         Args:
             address: Wallet address (e.g., "0x...")
             limit: Number of fills to return (default: 100)
+            start_time: Epoch-ms lower bound. Sent as startTime - same name and units
+                        as Hyperliquid's userFillsByTime, so HL code ports directly.
+            minutes: Relative form of the same window (0-4320).
+
+        Raises:
+            requests.HTTPError 503 with code "fills_scanner_busy" when the scanner is
+            at its concurrency limit. Retry shortly or fall back - not an empty result.
 
         Returns:
             list of fill objects in Hyperliquid format:
@@ -683,8 +744,16 @@ class MoonDevAPI:
                 }
             ]
         """
-        params = f"?limit={limit}" if limit != 100 else ""
-        response = self._get(f"/api/fills/{address}{params}")
+        params = {}
+        if limit != 100:
+            params['limit'] = limit
+        if start_time is not None:
+            params['startTime'] = start_time
+        if minutes is not None:
+            params['minutes'] = minutes
+
+        timeout = 30 if (start_time is not None or minutes is not None) else 90
+        response = self._get(f"/api/fills/{address}", params=params, timeout=timeout)
         return response.json()
 
     # ==================== HYPERLIQUID DIRECT-PROXY (drop-in for HL SDK) ====================

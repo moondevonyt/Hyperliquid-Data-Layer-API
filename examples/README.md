@@ -2,6 +2,10 @@
 
 **Developer Porn Dashboard Collection** - Beautiful, colorful examples showing how to use every endpoint of the Moon Dev API.
 
+## Changelog
+
+**2026-08-13** — Fills endpoints now accept time windows: `minutes`/`since_ms` on `/api/user/{address}/fills`, `startTime`/`minutes` on `/api/fills/{address}`. Windowed queries are ~50ms for any wallet. New 503 code `fills_scanner_busy` (retry/fall back); an empty fills array now always means genuinely no fills. Retired (410): `/api/hlp/funding`, `/api/hlp/funding/hip3`, `/api/hlp/trades`, `/api/hlp/trades/stats`, `/api/launch/*`, `/ws/launch/*`, `/api/sol-launch/*`.
+
 ## What's Inside
 
 Each file in this folder is a standalone Python script that demonstrates one section of the API with a gorgeous terminal dashboard output. Run any script to see live data beautifully formatted.
@@ -37,6 +41,7 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `34_polymarket_traders.py` | Polymarket Traders | **NEW!** Profitable Polymarket traders by 7-day P&L, discovery sources |
 | `36_hl_direct_proxy.py` | HL Direct-Proxy | **NEW!** Drop-in `info.user_state` + `info.open_orders` — no 429s, local node w/ public fallback |
 | `37_liquidation_totals.py` | Liquidation Totals | **NEW!** Long/short split across 6 rolling windows (5m→4h) + squeeze detector, per-exchange breakdown |
+| `38_fills_polling.py` | Fills Polling | **NEW!** Time-windowed fills (`minutes`/`since_ms`/`startTime`) — ~50ms for any wallet, with dedupe + 503 handling |
 
 ---
 
@@ -353,6 +358,22 @@ Bar behavior:
 |----------|-------------|
 | `GET /api/user/{address}/positions` | Current positions for any wallet |
 | `GET /api/user/{address}/fills?limit=N` | Historical fills (default: 100, max: 2000, -1 for ALL) |
+| `GET /api/user/{address}/fills?minutes=N` | Only fills from the last N minutes (0-4320). **Fast lane** |
+| `GET /api/user/{address}/fills?since_ms=EPOCH_MS` | Only fills at/after this epoch-ms timestamp. Same fast lane |
+| `GET /api/fills/{address}?startTime=EPOCH_MS` | HL-format fills, epoch-ms lower bound (same name/units as HL's `userFillsByTime`) |
+| `GET /api/fills/{address}?minutes=N` | HL-format fills, relative window (0-4320) |
+
+**Time windows on fills (added 2026-08-13):**
+
+`minutes` and `since_ms` combine with `limit`. If you pass both, the later (narrower) one wins. The response echoes back a `since_ms` field with the resolved window start (`null` when no window was passed), so you can assert the server honored your window.
+
+> Passing a time window makes every wallet equally fast (~50ms) regardless of how many fills it has. Without a window, first contact with a fill-sparse wallet forces a full 3-day archive scan that can take ~30s (returns 200, it's just slow). For deep history, page backwards with `since_ms` windows instead of one giant call.
+
+```bash
+curl "https://api.moondev.com/api/user/0xABC.../fills?minutes=10&limit=2000&api_key=KEY"
+```
+
+See `38_fills_polling.py` for the polling pattern (window + dedupe + 503 handling).
 
 ### HLP (HYPERLIQUIDITY PROVIDER) - Complete Reverse Engineering
 
@@ -543,6 +564,10 @@ positions = api.get_user_positions("0x...")          # Via Hyperliquid API
 positions_api = api.get_user_positions_api("0x...")  # Via Moon Dev API
 fills = api.get_user_fills("0x...", limit=100)       # Historical fills
 fills_all = api.get_user_fills("0x...", limit=-1)   # ALL fills
+recent = api.get_user_fills("0x...", limit=2000, minutes=10)      # FAST LANE: last 10 min (~50ms)
+since = api.get_user_fills("0x...", limit=2000, since_ms=1786651235303)  # epoch-ms lower bound
+hl_fills = api.get_fills("0x...", start_time=1786651235303)       # HL format, startTime
+hl_recent = api.get_fills("0x...", minutes=60)                    # HL format, relative window
 
 # === HLP (HYPERLIQUIDITY PROVIDER) ===
 hlp = api.get_hlp_positions()                        # Full details
@@ -645,6 +670,9 @@ python api_examples/11_user_fills.py 0xYOUR_ADDRESS 500
 
 # Get ALL fills for a wallet
 python api_examples/11_user_fills.py 0xYOUR_ADDRESS -1
+
+# FAST LANE: last 60 minutes only (~50ms for any wallet)
+python api_examples/11_user_fills.py 0xYOUR_ADDRESS 2000 60
 ```
 
 **Features:**
@@ -794,6 +822,18 @@ MOONDEV_API_KEY=your_actual_key_here
 ### "Rate limit exceeded"
 - You're making more than 3,600 requests/minute
 - Add delays between requests or cache responses
+
+### Error codes
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `missing_api_key` / `invalid_api_key` | 401 | No key / wrong key |
+| `stream_key_expired` | 401 | Daily `moonstream_*` key rotated (~24h validity) — fetch a current key |
+| `rate_limited` | 429 | Too many requests. Also covers clients retrying dead keys: after ~5 explanatory 401s, dead-key retries collapse to 2/min per IP |
+| `fills_scanner_busy` | 503 | Fills scanner is at its concurrency limit — **retry shortly or use your fallback source. Do NOT treat as empty.** |
+| `endpoint_retired` | 410 | Permanent. See the retired endpoint list above |
+
+**On `fills_scanner_busy`:** the flip side is now guaranteed — an empty `fills` array with HTTP 200 genuinely means the wallet has no fills. Previously it could also mean "scanner busy", so if you coded around that old ambiguity you can drop the workaround.
 
 ### Import errors
 ```bash

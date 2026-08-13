@@ -107,7 +107,8 @@ AVAILABLE HYPERLIQUID API ENDPOINTS (Moon Dev's Data Layer):
 
 == USER DATA (ANY Hyperliquid wallet!) ==
 • get_user_positions(address) - Positions for ANY wallet address
-• get_user_fills(address, limit) - Trade history for ANY wallet (up to ALL fills!)
+• get_user_fills(address, limit, minutes, since_ms) - Trade history for ANY wallet (up to ALL fills!)
+  Pass minutes or since_ms for the fast lane: ~50ms for any wallet. No window can take ~30s.
 
 == WHALE TRACKING ==
 • get_whales() - Recent whale trades ($25k+, buys & sells)
@@ -131,7 +132,8 @@ AVAILABLE HYPERLIQUID API ENDPOINTS (Moon Dev's Data Layer):
   Replaces Hyperliquid's rate-limited clearinghouseState call
   Returns: marginSummary, assetPositions, withdrawable
 
-• get_fills(address, limit) - Trade fills in Hyperliquid-compatible format
+• get_fills(address, limit, start_time, minutes) - Trade fills in Hyperliquid-compatible format
+  start_time is epoch-ms, same name/units as HL's userFillsByTime
   Replaces Hyperliquid's rate-limited userFills call
   Returns: Array of fills with coin, side, sz, px, time, closedPnl, dir, etc.
   Default limit: 100

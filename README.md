@@ -149,7 +149,7 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `08_trades.py` | Trade stream, large trades, volume analysis |
 | `09_smart_money.py` | Top 100 smart money, Bottom 100 dumb money, trading signals |
 | `10_user_positions.py` | Get all positions for ANY Hyperliquid wallet |
-| `11_user_fills.py` | Historical fills, PnL analysis, win/loss streaks |
+| `11_user_fills.py` | Historical fills, PnL analysis, win/loss streaks (add a `minutes` window for the fast lane) |
 | `12_hlp_positions.py` | All 7 HLP strategies, liquidators, deltas |
 | `13_binance_liquidations.py` | Binance Futures liquidations for comparison |
 | `14_multi_liquidations.py` | Combined liqs from Hyperliquid, Binance, Bybit, OKX |
@@ -165,6 +165,7 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `35_ohlcv_data.py` | Universe + single-symbol and multi-symbol bars from the new OHLCV layer |
 | `35_btc_tick_stream.py` | Live BTC tick stream with rolling tape + JSONL sink for bots |
 | `37_liquidation_totals.py` | **NEW!** Long/short liquidation totals across 6 rolling windows (5m→4h) + squeeze detector |
+| `38_fills_polling.py` | **NEW!** Time-windowed fills polling - ~50ms for any wallet, with dedupe + 503 handling |
 
 See the [examples/README.md](examples/README.md) for the API reference, or visit **https://moondev.com/docs** for the full documentation.
 
@@ -185,6 +186,7 @@ These endpoints replace Hyperliquid's rate-limited API calls. All requests go th
 | `GET /api/hl/clearinghouse/{address}` | `info.user_state()` | Direct proxy alias of `/api/account` (try local node, fall back to public) |
 | `GET /api/hl/open_orders/{address}` | `info.open_orders()` | All resting orders (optional `?coin=BTC` filter) |
 | `GET /api/fills/{address}` | `userFills` | Trade fills in Hyperliquid-compatible format |
+| `GET /api/fills/{address}?startTime=MS` | `userFillsByTime` | Same param name and units as HL, so HL code ports directly (or use `?minutes=N`) |
 | `GET /api/candles/{coin}` | `candleSnapshot` | OHLCV candles (1m, 5m, 15m, 1h, 4h, 1d) |
 | `GET /api/candles/symbols` | - | List all 80 tracked symbols |
 | `GET /api/ticks/{symbol}` | - | Raw tick data with custom time windows |
@@ -376,6 +378,10 @@ print(f"Account value: ${account['marginSummary']['accountValue']}")
 fills = api.get_fills("0x...", limit=100)
 for fill in fills[:5]:
     print(f"{fill['coin']} {fill['side']} @ {fill['px']}")
+
+# Trade fills in a time window - ~50ms for ANY wallet, always use this when polling
+recent = api.get_fills("0x...", minutes=60)                  # HL format, last hour
+recent = api.get_user_fills("0x...", limit=2000, minutes=10) # Moon Dev format, last 10 min
 
 # OHLCV candles
 candles = api.get_candles("BTC", interval="1m")

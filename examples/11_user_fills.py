@@ -5,9 +5,14 @@ Beautiful terminal dashboard for viewing Hyperliquid wallet fill/trade history
 
 Built with love by Moon Dev
 
-Usage: python 11_user_fills.py [address] [limit]
+Usage: python 11_user_fills.py [address] [limit] [minutes]
        python 11_user_fills.py 0x010461c14e146ac35fe42271bdc1134ee31c703a 500
        python 11_user_fills.py 0x010461c14e146ac35fe42271bdc1134ee31c703a -1  # ALL fills
+       python 11_user_fills.py 0x010461c14e146ac35fe42271bdc1134ee31c703a 2000 60  # last 60 min
+
+Moon Dev tip: passing minutes puts you on the fast lane (~50ms for ANY wallet).
+Without a window, first contact with a fill-sparse wallet can take ~30s.
+See 38_fills_polling.py for the polling pattern.
 
 Data Source: Moon Dev's local Hyperliquid node (blazing fast!)
 """
@@ -16,6 +21,8 @@ import sys
 import os
 from datetime import datetime
 from collections import defaultdict
+
+import requests
 
 # Add parent directory to path to import api.py
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -476,8 +483,18 @@ def main():
     if len(sys.argv) > 2:
         limit = int(sys.argv[2])
 
+    # Optional time window - Moon Dev: this is the fast lane, ~50ms for ANY wallet
+    minutes = None
+    if len(sys.argv) > 3:
+        minutes = float(sys.argv[3])
+
     console.print(f"[bold cyan]Moon Dev: Fetching trade history for {address[:10]}...{address[-6:]}[/bold cyan]")
     console.print(f"[dim]Limit: {limit if limit > 0 else 'ALL'} fills[/dim]")
+    if minutes:
+        console.print(f"[dim]Window: last {minutes} minutes (fast lane, ~50ms)[/dim]")
+    else:
+        console.print("[dim]No time window. First contact with a fill-sparse wallet can take ~30s.[/dim]")
+        console.print("[dim]Tip: pass minutes as the 3rd arg to use the fast lane.[/dim]")
     console.print()
 
     # Initialize API
@@ -497,19 +514,33 @@ def main():
 
     # Fetch fills
     with console.status("[bold cyan]Moon Dev: Scanning local node for fills...[/bold cyan]"):
-        fills_data = api.get_user_fills(address, limit=limit)
+        try:
+            fills_data = api.get_user_fills(address, limit=limit, minutes=minutes)
+        except requests.HTTPError as e:
+            # 503 fills_scanner_busy means RETRY OR FALL BACK, never "no fills"
+            if e.response is not None and e.response.status_code == 503:
+                console.print(Panel(
+                    "[bold yellow]Fills scanner is busy (fills_scanner_busy)[/bold yellow]\n"
+                    "[dim]Retry shortly or use your fallback source. This is NOT an empty result.[/dim]",
+                    border_style="yellow",
+                    title="Service Busy",
+                    padding=(0, 1)
+                ))
+                return
+            raise
 
     if not isinstance(fills_data, dict):
         console.print("[red]Error: Invalid response from API[/red]")
         return
 
     fills = fills_data.get('fills', [])
-    total_available = fills_data.get('total', len(fills))
+    total_available = fills_data.get('count', len(fills))
 
     if not fills:
+        # HTTP 200 with an empty list always means genuinely no fills
         console.print(Panel(
             f"[yellow]No fills found for address {address}[/yellow]\n"
-            "[dim]This wallet may have no trading history on Hyperliquid.[/dim]",
+            "[dim]This wallet has no trading history in this window on Hyperliquid.[/dim]",
             border_style="yellow",
             title="No Data",
             padding=(0, 1)
