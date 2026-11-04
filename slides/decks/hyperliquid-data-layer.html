@@ -1,0 +1,1544 @@
+<title>Moon Dev · Hyperliquid Data Layer API</title>
+
+<style>
+  :root {
+    --bg:    #000000;
+    --pane:  #050807;
+    --grid:  #0B1310;
+    --edge:  #142019;
+    --dim:   #1C3A2A;
+    --neu:   #66786D;
+    --neu2:  #3A4A42;
+    --ink:   #CFE8D8;
+    --grn:   #00FF6A;
+    --red:   #FF2E3E;
+    --amb:   #FFB000;
+    --cyn:   #2BE7FF;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --cond: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
+  }
+
+  /* single-theme on purpose: this is a terminal, it only exists lit */
+  html { background: var(--bg); color-scheme: dark; }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2vmin;
+    gap: 1.4vmin;
+  }
+
+  .deck { width: 100%; max-width: 1560px; container-type: inline-size; }
+
+  .stage {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    min-height: 400px;
+    border: 1px solid var(--edge);
+    background:
+      radial-gradient(110% 80% at 12% 0%, #0A1410 0%, transparent 58%),
+      radial-gradient(90% 70% at 92% 100%, #0F0A0C 0%, transparent 60%),
+      var(--pane);
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #000 inset, 0 2cqw 7cqw -3cqw #000;
+  }
+
+  #ambient { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; pointer-events: none; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    grid-template-rows: auto 1fr;
+    z-index: 1;
+  }
+  .slide.on { display: grid; }
+
+  /* ---------- head ---------- */
+  .head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 1.8cqw;
+    padding: 1.6cqw 2.2cqw 1.2cqw;
+    border-bottom: 1px solid var(--edge);
+  }
+  .num {
+    font-family: var(--mono);
+    font-size: 3.1cqw;
+    line-height: .85;
+    font-weight: 600;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .num small { display: block; font-size: .95cqw; color: var(--neu2); letter-spacing: .18em; margin-top: .35cqw; }
+  .titles { min-width: 0; }
+  .eyebrow {
+    font-family: var(--cond);
+    font-size: 1cqw;
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    color: var(--grn);
+    display: flex; gap: .9cqw; align-items: baseline;
+  }
+  .eyebrow b { color: var(--neu2); font-weight: 400; }
+  .titles h2 {
+    margin: .35cqw 0 .45cqw;
+    font-size: 2.15cqw;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .titles h2 em { font-style: normal; color: var(--grn); }
+  .say { margin: 0; font-size: 1.16cqw; line-height: 1.5; color: var(--neu); max-width: 74ch; }
+  .fn {
+    font-size: 1cqw;
+    color: var(--neu2);
+    text-align: right;
+    white-space: nowrap;
+    padding-top: .5cqw;
+  }
+  .fn b { color: var(--amb); font-weight: 400; }
+
+  .viz { position: relative; min-height: 0; }
+  .viz svg { display: block; width: 100%; height: 100%; }
+
+  /* ---------- code slides ---------- */
+  .head.slim {
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 1.15cqw 2.2cqw .95cqw;
+  }
+  .head.slim .num { font-size: 1.75cqw; color: var(--dim); }
+  .head.slim .num small { display: inline; font-size: .85cqw; margin-left: .35cqw; letter-spacing: .12em; }
+  .head.slim h3 {
+    margin: 0 0 .2cqw;
+    font-size: 1.6cqw;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--grn);
+  }
+  .head.slim h3 span { color: var(--neu2); font-weight: 400; }
+  .head.slim .say { font-size: 1.02cqw; color: var(--neu); }
+  .stamp {
+    font-family: var(--cond);
+    font-size: .88cqw;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--neu2);
+    border: 1px solid var(--edge);
+    padding: .35cqw .6cqw;
+    white-space: nowrap;
+  }
+  .stamp.trim { color: var(--amb); border-color: #3A2A00; }
+
+  .pane { position: relative; min-height: 0; padding: .9cqw 1.6cqw 1.1cqw; overflow: hidden; }
+  .pre { margin: 0; font-family: var(--mono); line-height: 1.52; font-size: 16px; }
+  .row {
+    display: grid;
+    grid-template-columns: 3ch 1fr;
+    gap: 1.6ch;
+    padding-left: .9ch;
+    border-left: 2px solid transparent;
+    white-space: pre;
+    opacity: 0;
+    animation: rise .34s cubic-bezier(.2,.9,.3,1) forwards;
+  }
+  .row .ln { color: #1B2721; text-align: right; user-select: none; }
+  .row.hi { background: rgba(0,255,106,.07); border-left-color: var(--grn); }
+  .row.hi .ln { color: var(--grn); }
+  .t   { color: var(--ink); }
+  .t.k { color: var(--red); }
+  .t.s { color: var(--amb); }
+  .t.c { color: #46614F; font-style: italic; }
+  .t.n { color: var(--cyn); }
+  .t.f { color: var(--grn); }
+  .t.d { color: #3E5749; }
+  .pre.doc .t { color: #7FA48E; }
+  .pre.doc .row:first-child .t,
+  .pre.doc .row:nth-child(2) .t { color: var(--grn); }
+
+  /* ---------- nav ---------- */
+  .nav {
+    width: 100%; max-width: 1560px;
+    display: flex; align-items: center; gap: 1.4vmin;
+    font-family: var(--cond);
+    font-size: clamp(9px, .8vw, 12px);
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  .now { color: var(--grn); white-space: nowrap; min-width: 15ch; }
+  .now b { color: var(--neu2); font-weight: 400; margin-right: .7ch; }
+  .ticks { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; }
+  .ticks button {
+    flex: 1 1 0; min-width: 0;
+    appearance: none; background: transparent; border: 0;
+    border-top: 3px solid var(--edge);
+    height: 14px; padding: 0; cursor: pointer;
+    transition: border-color .18s;
+  }
+  .ticks button:hover { border-color: var(--dim); }
+  .ticks button[aria-current="true"] { border-color: var(--grn); }
+  .ticks button.part2 { border-top-color: #241A00; }
+  .ticks button.part2:hover { border-top-color: #4A3600; }
+  .ticks button.part2[aria-current="true"] { border-top-color: var(--amb); }
+  .ticks .split { flex: 0 0 14px; }
+  .ticks button:focus-visible { outline: 1px solid var(--grn); outline-offset: 2px; }
+  .hint { color: var(--neu2); font-family: var(--mono); letter-spacing: .04em; text-transform: none; white-space: nowrap; }
+
+  /* ---------- shared motion ---------- */
+  .draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 1.15s cubic-bezier(.25,.8,.3,1) forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .pop { opacity: 0; animation: pop .45s cubic-bezier(.2,1.5,.4,1) forwards; }
+  @keyframes pop { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+  .fade { opacity: 0; animation: fade .7s ease-out forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  .rise { opacity: 0; animation: rise .6s cubic-bezier(.2,.9,.3,1) forwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .wipe { clip-path: inset(0 100% 0 0); animation: wipe 1.3s cubic-bezier(.35,.6,.25,1) forwards; }
+  @keyframes wipe { to { clip-path: inset(0 0 0 0); } }
+  .blink { animation: blink 1.5s steps(1) infinite; }
+  @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: .18; } }
+  .spin { transform-box: fill-box; transform-origin: center; animation: spin 16s linear infinite; }
+  .spin.rev { animation-duration: 10s; animation-direction: reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .breathe { transform-box: fill-box; transform-origin: center; animation: breathe 2.8s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: .16; transform: scale(1); } 50% { opacity: .46; transform: scale(1.45); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .draw, .pop, .fade, .rise, .wipe, .blink, .spin, .breathe { animation: none !important; }
+    .draw { stroke-dashoffset: 0; }
+    .pop, .fade, .rise { opacity: 1; }
+    .wipe { clip-path: none; }
+    .breathe { opacity: .26; }
+  }
+</style>
+
+<div class="deck">
+  <div class="stage">
+    <canvas id="ambient"></canvas>
+    <div id="slides"></div>
+  </div>
+</div>
+<nav class="nav" id="nav" aria-label="slides"></nav>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const E = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const add = (p, ...c) => { c.forEach(x => x && p.appendChild(x)); return p; };
+  const rng = s => () => (s = s * 16807 % 2147483647) / 2147483647;
+
+  const T = (x, y, s, o = {}) => {
+    const t = E("text", {
+      x, y,
+      fill: o.fill || "#3A4A42",
+      "font-size": o.size || 10,
+      "font-family": o.face === "c" ? '"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif' : 'ui-monospace,"SF Mono",Menlo,monospace',
+      "letter-spacing": o.ls ?? 0,
+      "text-anchor": o.at || "middle",
+      "font-weight": o.w || 400,
+      opacity: o.op ?? 1,
+    });
+    if (o.cls) t.setAttribute("class", o.cls);
+    if (o.delay != null) t.style.animationDelay = o.delay + "s";
+    t.textContent = s;
+    return t;
+  };
+  const lab = (x, y, s, o = {}) => T(x, y, s, { face: "c", ls: 2.4, size: 9, ...o });
+  const delay = (n, d) => { n.style.animationDelay = d + "s"; return n; };
+  const dash = (o) => E("line", { stroke: "#1C3A2A", "stroke-width": 1, "stroke-dasharray": "3 4", ...o });
+
+  const C = { grn: "#00FF6A", red: "#FF2E3E", amb: "#FFB000", cyn: "#2BE7FF", ink: "#CFE8D8", neu: "#66786D", neu2: "#3A4A42", dim: "#1C3A2A", edge: "#142019" };
+
+  const DEFS = `
+    <linearGradient id="gGrn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00FF6A" stop-opacity=".34"/><stop offset="100%" stop-color="#00FF6A" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF2E3E" stop-opacity=".38"/><stop offset="100%" stop-color="#FF2E3E" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gAmb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFB000" stop-opacity=".28"/><stop offset="100%" stop-color="#FFB000" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="coreR"><stop offset="0%" stop-color="#FFD9DE"/><stop offset="42%" stop-color="#FF2E3E"/><stop offset="100%" stop-color="#5E0810"/></radialGradient>
+    <radialGradient id="haloR"><stop offset="0%" stop-color="#FF2E3E" stop-opacity=".6"/><stop offset="72%" stop-color="#FF2E3E" stop-opacity=".06"/><stop offset="100%" stop-color="#FF2E3E" stop-opacity="0"/></radialGradient>
+    <radialGradient id="atomG"><stop offset="0%" stop-color="#B6FFD6"/><stop offset="55%" stop-color="#00FF6A"/><stop offset="100%" stop-color="#046B31"/></radialGradient>
+    <filter id="glow" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowS" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+
+  // ======================================================================= //
+  // PATTERNS — starter builders. Copy, mangle, or ignore them.
+  // A bespoke drawing beats a reused one every time. These exist so you are
+  // never staring at a blank canvas, not so every deck looks the same.
+  // ======================================================================= //
+
+  // Two vessels and a sum. Good for "this reads zero but the money is over here".
+  function pTanks(g, items, footer) {
+    items.forEach((it, i) => {
+      const x = 70 + i * 315, y = 96, w = 200, h = 200;
+      const gg = E("g", { class: "rise" }); gg.style.animationDelay = (.1 + i * .25) + "s";
+      add(gg,
+        E("rect", { x, y, width: w, height: h, fill: "#050A08", stroke: it.c, "stroke-opacity": .45 }),
+        E("rect", { x, y: y + h - h * it.pct, width: w, height: h * it.pct, fill: it.c, "fill-opacity": .13 }),
+        it.pct > 0 ? E("line", { x1: x, y1: y + h - h * it.pct, x2: x + w, y2: y + h - h * it.pct, stroke: it.c, "stroke-width": 1.6 }) : null,
+        lab(x + 12, y - 14, it.title, { at: "start", fill: it.c, ls: 3, size: 10 }),
+        T(x + w / 2, y + h / 2, it.big, { size: 24, fill: it.c, w: 600 }),
+        T(x + w / 2, y + h / 2 + 22, it.sub, { size: 9.5, fill: C.neu2 }),
+      );
+      add(g, gg);
+      if (i < items.length - 1) add(g, delay(T(x + w + 57, y + h / 2, i === items.length - 2 ? "=" : "+", { size: 30, fill: C.neu2, cls: "fade" }), .9));
+    });
+    if (footer) add(g, delay(T(70, 392, footer, { at: "start", size: 10.5, fill: C.neu, cls: "fade" }), 1.6));
+  }
+
+  // Boxes and arrows. Good for state machines and pipelines.
+  function pFlow(g, nodes, arrows) {
+    nodes.forEach((n, i) => {
+      const gg = E("g", { class: "rise" }); gg.style.animationDelay = (.1 + i * .18) + "s";
+      add(gg,
+        n.glow ? E("rect", { x: n.x - 4, y: n.y - 4, width: n.w + 8, height: n.h + 8, fill: n.c, opacity: .05 }) : null,
+        E("rect", { x: n.x, y: n.y, width: n.w, height: n.h, fill: "#050A08", stroke: n.c, "stroke-opacity": .6 }),
+        T(n.x + 14, n.y + 27, n.t, { at: "start", size: 15, fill: n.c, w: 600 }),
+        T(n.x + 14, n.y + 46, n.sub, { at: "start", size: 9.5, fill: C.neu2 }),
+      );
+      add(g, gg);
+    });
+    arrows.forEach((a, i) => {
+      add(g, delay(E("path", { d: a.d, fill: "none", stroke: a.c, "stroke-width": 1.2, "stroke-opacity": .75, class: "fade" }), .8 + i * .14));
+      if (a.t) add(g, delay(lab(a.tx, a.ty, a.t, { fill: a.c, ls: 2, size: 8.5, cls: "fade" }), .85 + i * .14));
+    });
+  }
+
+  // Three columns with a verdict. Good for diffs, before/after, keep/kill.
+  function pColumns(g, heads, rows) {
+    heads.forEach((h, i) => add(g,
+      delay(lab(70 + i * 330, 60, h.t, { at: "start", fill: h.c, ls: 3.2, size: 10 }), .1),
+      E("line", { x1: 70 + i * 330, y1: 70, x2: 70 + i * 330 + 220, y2: 70, stroke: C.edge })));
+
+    rows.forEach((r, i) => {
+      const y = 108 + i * 74;
+      [r.a, r.b].forEach((cell, k) => {
+        const x = 70 + k * 330;
+        if (cell) add(g,
+          delay(E("rect", { x, y, width: 220, height: 40, fill: "#050A08", stroke: r.c, "stroke-opacity": .4, class: "rise" }), .3 + i * .18),
+          delay(T(x + 12, y + 25, cell, { at: "start", size: 10.5, fill: C.ink, cls: "fade" }), .4 + i * .18));
+        else add(g, delay(T(x + 12, y + 25, "—", { at: "start", size: 14, fill: "#1A241F", cls: "fade" }), .4 + i * .18));
+      });
+      add(g,
+        delay(E("rect", { x: 730, y, width: 190, height: 40, fill: "none", stroke: r.c, "stroke-opacity": .55, class: "rise" }), .55 + i * .18),
+        delay(T(742, y + 26, r.act, { at: "start", size: 15, fill: r.c, w: 600, cls: "fade" }), .65 + i * .18),
+        delay(T(742, y + 56, r.note, { at: "start", size: 9, fill: C.neu2, cls: "fade" }), .7 + i * .18),
+      );
+    });
+  }
+
+  // A spinning ring with labelled stops. Good for "this never stops running".
+  function pRing(g, cx, cy, R, stops, big, small) {
+    add(g,
+      E("circle", { cx, cy, r: R + 26, fill: C.grn, opacity: .03 }),
+      E("circle", { cx, cy, r: R, fill: "none", stroke: "#0C6B3B", "stroke-width": 1.4, "stroke-dasharray": "4 7" }),
+    );
+    const ring = E("circle", { cx, cy, r: R, fill: "none", stroke: C.grn, "stroke-width": 2, "stroke-dasharray": (R * 1) + " " + (R * 6), filter: "url(#glowS)", class: "spin" });
+    ring.style.transformOrigin = cx + "px " + cy + "px"; ring.style.transformBox = "view-box";
+    add(g, ring);
+    stops.forEach((t, i) => {
+      const a = (i / stops.length) * Math.PI * 2 - Math.PI / 2;
+      add(g, delay(E("circle", { cx: cx + Math.cos(a) * R, cy: cy + Math.sin(a) * R, r: 4.5, fill: C.grn, class: "pop" }), .2 + i * .12));
+      add(g, delay(T(cx + Math.cos(a) * (R + 28), cy + Math.sin(a) * (R + 28) + 3.5, t, { size: 9.5, fill: C.neu, cls: "fade" }), .3 + i * .12));
+    });
+    add(g,
+      delay(T(cx, cy - 6, big, { size: 32, fill: C.grn, w: 600, cls: "fade" }), .6),
+      delay(lab(cx, cy + 16, small, { fill: "#2F8C55", ls: 4.4 }), .7),
+    );
+  }
+
+  // ======================================================================= //
+  // PART TWO DIVIDER — lists the code slides. Leave this alone, it builds
+  // itself from the CODE array.
+  // ======================================================================= //
+  function sDiv(g) {
+    add(g,
+      delay(T(70, 116, "PART TWO", { at: "start", size: 54, fill: C.amb, w: 600, cls: "rise" }), .1),
+      delay(T(70, 178, "THE CODE", { at: "start", size: 54, fill: C.grn, w: 600, cls: "rise" }), .2),
+      delay(E("line", { x1: 70, y1: 208, x2: 396, y2: 208, stroke: C.edge, class: "fade" }), .35),
+      delay(T(70, 238, "four hero examples  ·  out of thirty nine", { at: "start", size: 13, fill: C.neu, cls: "fade" }), .4),
+      delay(T(70, 268, "positions near liquidation, then multi venue liquidations,", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .5),
+      delay(T(70, 286, "in the order each file reads from top to bottom", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .55),
+    );
+    const x = 486;
+    add(g, delay(E("line", { x1: x, y1: 30, x2: x, y2: 30 + CODE.length * 25, stroke: C.edge, class: "fade" }), .45));
+    CODE.forEach((c, i) => {
+      const y = 46 + i * 25, p = c.fn.split("  ·  ");
+      add(g,
+        delay(E("line", { x1: x, y1: y - 4, x2: x + 11, y2: y - 4, stroke: C.grn, "stroke-opacity": .5, class: "fade" }), .5 + i * .045),
+        delay(T(x + 20, y, String(i + SLIDES.length + 2).padStart(2, "0"), { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .5 + i * .045),
+        delay(T(x + 48, y, p[0], { at: "start", size: 12.5, fill: C.ink, cls: "fade" }), .55 + i * .045),
+        p[1] ? delay(T(x + 250, y, p[1], { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), .6 + i * .045) : null,
+      );
+    });
+  }
+
+  // ======================================================================= //
+  // CLOSER — a terminal window with the commands to run the thing.
+  // ======================================================================= //
+  const RUN_CMDS = [
+    ["python examples/02_positions.py", "every big position and how close it is to dying", C.grn],
+    ["python examples/24_position_snapshots.py", "everything inside 15% of liquidation, tracked over time", C.amb],
+    ["python examples/37_liquidation_totals.py", "all four venues, long vs short, one single call", C.red],
+  ];
+
+  function sRun(g) {
+    const x = 120, y = 44, w = 760, h = 320;
+    add(g,
+      delay(E("rect", { x, y, width: w, height: h, fill: "#020403", stroke: C.dim, class: "rise" }), .1),
+      delay(E("rect", { x, y, width: w, height: 30, fill: "#050A08", stroke: C.dim, class: "rise" }), .1),
+      delay(T(x + 108, y + 20, FILE_NAME, { at: "start", size: 11.5, fill: C.neu, cls: "fade" }), .3),
+    );
+    [C.red, C.amb, C.grn].forEach((c, i) => add(g, delay(E("circle", { cx: x + 22 + i * 20, cy: y + 15, r: 5, fill: c, opacity: .8, class: "pop" }), .2 + i * .07)));
+
+    RUN_CMDS.forEach(([cmd, note, col], i) => {
+      const cy = y + 74 + i * 66;
+      add(g,
+        delay(T(x + 26, cy, "$", { at: "start", size: 17, fill: col, w: 600, cls: "fade" }), .5 + i * .22),
+        delay(T(x + 48, cy, cmd, { at: "start", size: 16, fill: C.ink, cls: "fade" }), .55 + i * .22),
+        delay(T(x + 48, cy + 22, "# " + note, { at: "start", size: 11.5, fill: "#46614F", cls: "fade" }), .6 + i * .22),
+      );
+    });
+
+    add(g,
+      delay(E("rect", { x: x + 20, y: y + 258, width: w - 40, height: 1, fill: C.edge, class: "fade" }), 1.2),
+      delay(T(x + 26, y + 292, "Built with love by Moon Dev 🚀", { at: "start", size: 15, fill: C.grn, cls: "fade" }), 1.3),
+      delay(lab(x + w - 26, y + 292, "MOONDEV.COM", { at: "end", fill: C.neu2, ls: 3.4, size: 10 }), 1.4),
+      delay(T(500, 412, "39 examples in the repo, this deck walked four of them", { size: 10.5, fill: C.neu2, cls: "fade" }), 1.6),
+    );
+  }
+
+  // ======================================================================= //
+  // ▼▼▼  FILL THIS IN  ▼▼▼
+  // Moon Dev's Hyperliquid Data Layer API — why it exists, and the two
+  // features that make it worth building.
+  // ======================================================================= //
+  const FILE_NAME = "examples/";
+
+  // ----------------------------------------------------------------------- //
+  // 01 — THE LOSS
+  // ----------------------------------------------------------------------- //
+  function s1(g) {
+    const r = rng(9), x0 = 90, x1 = 620, N = 48;
+    const pts = []; let y = 300;
+    for (let i = 0; i <= N; i++) {
+      const x = x0 + i * (x1 - x0) / N;
+      if (i < 30) y += -2.4 + (r() - .5) * 11; else y += 8.6 + r() * 6;
+      y = Math.max(96, Math.min(376, y));
+      pts.push([x, y]);
+    }
+    const seg = (a, b) => pts.slice(a, b + 1)
+      .map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+
+    add(g,
+      E("line", { x1: x0, y1: 388, x2: 660, y2: 388, stroke: C.edge }),
+      E("line", { x1: x0, y1: 58, x2: x0, y2: 388, stroke: C.edge }),
+      delay(lab(x0, 46, "EQUITY", { at: "start", fill: C.neu2, ls: 3.2, size: 10 }), .1),
+    );
+
+    const up = E("path", { d: seg(0, 30), fill: "none", stroke: C.grn, "stroke-width": 2, class: "draw" });
+    up.style.setProperty("--len", "1100"); up.style.animationDelay = ".15s";
+    const dn = E("path", { d: seg(30, N), fill: "none", stroke: C.red, "stroke-width": 2.6, filter: "url(#glowS)", class: "draw" });
+    dn.style.setProperty("--len", "700"); dn.style.animationDelay = "1.05s";
+    add(g, up, dn);
+
+    // sparks where it hits the floor
+    const ex = pts[N][0], ey = pts[N][1];
+    for (let i = 0; i < 9; i++) {
+      const a = -Math.PI / 2 + (r() - .5) * 2.6, L = 12 + r() * 26;
+      add(g, delay(E("line", {
+        x1: ex, y1: ey, x2: ex + Math.cos(a) * L, y2: ey + Math.sin(a) * L,
+        stroke: C.red, "stroke-width": 1.2, "stroke-opacity": .7, class: "fade",
+      }), 2.1 + i * .04));
+    }
+    add(g, delay(E("circle", { cx: ex, cy: ey, r: 5, fill: C.red, filter: "url(#glow)", class: "pop" }), 2.1));
+
+    add(g,
+      delay(T(190, 128, "six months learning to code by hand", { at: "start", size: 12, fill: "#2F8C55", cls: "fade" }), .9),
+      delay(T(190, 148, "one bot, built from scratch", { at: "start", size: 12, fill: "#2F8C55", cls: "fade" }), 1),
+      delay(T(700, 176, "-$10,000", { at: "start", size: 50, fill: C.red, w: 600, filter: "url(#glowS)", cls: "rise" }), 2.2),
+      delay(lab(702, 208, "GONE", { at: "start", fill: "#8C3038", ls: 4.4, size: 11 }), 2.35),
+      delay(E("line", { x1: 700, y1: 232, x2: 940, y2: 232, stroke: C.edge, class: "fade" }), 2.4),
+      delay(T(700, 262, "back to the drawing board", { at: "start", size: 13, fill: C.ink, cls: "fade" }), 2.45),
+      delay(T(700, 286, "it is not as easy as knowing", { at: "start", size: 11.5, fill: C.neu, cls: "fade" }), 2.5),
+      delay(T(700, 304, "how to code", { at: "start", size: 11.5, fill: C.neu, cls: "fade" }), 2.55),
+      delay(T(700, 328, "there are millions of coders", { at: "start", size: 11.5, fill: C.neu2, cls: "fade" }), 2.6),
+      delay(T(90, 424, "so Moon Dev stopped chasing a bot and built a framework instead", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), 2.8),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 02 — THE FRAMEWORK
+  // ----------------------------------------------------------------------- //
+  function s2(g) {
+    const r = rng(31);
+    for (let i = 0; i < 24; i++) {
+      add(g, delay(E("circle", {
+        cx: 52 + r() * 92, cy: 110 + r() * 210, r: 2.4 + r() * 2.2,
+        fill: C.neu2, class: "pop",
+      }), .05 + i * .03));
+    }
+    add(g, delay(lab(52, 92, "IDEAS", { at: "start", fill: C.neu, ls: 3.2, size: 10 }), .1));
+
+    const boxes = [
+      { x: 226, k: "R", t: "RESEARCH", s: "come up with ideas", c: C.ink, glow: 0 },
+      { x: 470, k: "B", t: "BACKTEST", s: "is it trash? kill it", c: C.amb, glow: 0 },
+      { x: 714, k: "I", t: "INCUBATE", s: "build a bot, go live", c: C.grn, glow: 1 },
+    ];
+    boxes.forEach((b, i) => {
+      const y = 150, w = 200, h = 108;
+      const gg = E("g", { class: "rise" }); gg.style.animationDelay = (.35 + i * .28) + "s";
+      add(gg,
+        b.glow ? E("rect", { x: b.x - 5, y: y - 5, width: w + 10, height: h + 10, fill: b.c, opacity: .06 }) : null,
+        E("rect", { x: b.x, y, width: w, height: h, fill: "#050A08", stroke: b.c, "stroke-opacity": .6 }),
+        T(b.x + 16, y + 44, b.k, { at: "start", size: 40, fill: b.c, w: 600, op: .3 }),
+        T(b.x + 62, y + 40, b.t, { at: "start", size: 17, fill: b.c, w: 600 }),
+        T(b.x + 62, y + 60, b.s, { at: "start", size: 10, fill: C.neu2 }),
+      );
+      add(g, gg);
+      if (i < 2) add(g, delay(E("path", {
+        d: `M${b.x + w} 204 L${b.x + w + 38} 204 M${b.x + w + 30} 199 L${b.x + w + 38} 204 L${b.x + w + 30} 209`,
+        fill: "none", stroke: C.neu2, "stroke-width": 1.2, class: "fade",
+      }), .8 + i * .2));
+    });
+    add(g, delay(E("path", {
+      d: "M144 218 L222 210 M214 205 L222 210 L214 215",
+      fill: "none", stroke: C.neu2, "stroke-width": 1.2, class: "fade",
+    }), .7));
+
+    // the trash chute under BACKTEST
+    add(g,
+      delay(E("path", { d: "M540 258 L540 340 M535 332 L540 340 L545 332", fill: "none", stroke: C.red, "stroke-width": 1.4, class: "fade" }), 1.3),
+      delay(lab(556, 350, "MOST IDEAS DIE HERE", { at: "start", fill: C.red, ls: 2.6, size: 10 }), 1.4),
+    );
+    for (let i = 0; i < 14; i++) {
+      add(g, delay(E("circle", {
+        cx: 470 + r() * 68, cy: 362 + r() * 22, r: 2.2 + r() * 1.8,
+        fill: "#4A1216", class: "pop",
+      }), 1.5 + i * .04));
+    }
+
+    add(g,
+      delay(E("rect", { x: 714, y: 292, width: 200, height: 46, fill: "#02110A", stroke: C.grn, "stroke-opacity": .5, class: "fade" }), 1.6),
+      delay(T(730, 324, "$10", { at: "start", size: 26, fill: C.grn, w: 600, filter: "url(#glowS)", cls: "fade" }), 1.7),
+      delay(lab(790, 322, "LIVE SIZE, REAL MONEY", { at: "start", fill: "#2F8C55", ls: 2.4, size: 9 }), 1.75),
+      delay(T(52, 424, "same three steps ever since, and thousands of people taught with them", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), 1.9),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 03 — THE WALL
+  // ----------------------------------------------------------------------- //
+  function s3(g) {
+    for (let i = 0; i < 10; i++) {
+      const y = 58 + i * 31;
+      add(g,
+        delay(E("rect", { x: 46, y, width: 92, height: 21, fill: "#050A08", stroke: C.grn, "stroke-opacity": .4, class: "rise" }), .05 + i * .05),
+        delay(T(56, y + 15, "bot " + String(i + 1).padStart(2, "0"), { at: "start", size: 10, fill: "#2F8C55", cls: "fade" }), .1 + i * .05),
+        delay(E("path", { d: `M138 ${y + 10} C 230 ${y + 10} 300 220 386 220`, fill: "none", stroke: C.grn, "stroke-width": 1, "stroke-opacity": .28, class: "fade" }), .55 + i * .05),
+      );
+    }
+    add(g, delay(lab(46, 42, "TEN BOTS INCUBATING AT ONCE", { at: "start", fill: C.grn, ls: 3, size: 10 }), .1));
+
+    add(g,
+      delay(E("path", { d: "M386 194 L448 212 L448 228 L386 246 Z", fill: "#050A08", stroke: C.neu2, class: "fade" }), 1),
+      delay(lab(386, 268, "ONE SET OF ENDPOINTS", { fill: C.neu2, ls: 2.4 }), 1.05),
+    );
+
+    // the wall
+    add(g,
+      delay(E("rect", { x: 482, y: 44, width: 46, height: 348, fill: "#2E0409", stroke: C.red, "stroke-opacity": .8, filter: "url(#glowS)", class: "wipe" }), 1.15),
+    );
+    ["4", "2", "9"].forEach((ch, i) => add(g, delay(T(505, 196 + i * 30, ch, { size: 24, fill: C.red, w: 600, cls: "fade" }), 1.35 + i * .1)));
+    add(g, delay(lab(505, 420, "RATE LIMITED", { fill: C.red, ls: 3.4, size: 11, cls: "blink" }), 1.7));
+
+    const fails = ["the order never goes out", "the candles come back empty", "the fill is never read"];
+    fails.forEach((t, i) => {
+      const y = 108 + i * 58;
+      add(g,
+        delay(E("rect", { x: 576, y, width: 336, height: 40, fill: "#150507", stroke: "#4A1216", class: "rise" }), 1.5 + i * .16),
+        delay(T(592, y + 26, t, { at: "start", size: 13, fill: "#B4525A", cls: "fade" }), 1.6 + i * .16),
+      );
+    });
+
+    add(g,
+      delay(E("rect", { x: 576, y: 300, width: 336, height: 62, fill: "#0A0404", stroke: C.red, "stroke-opacity": .55, class: "fade" }), 2.1),
+      delay(T(592, 328, "your incubation is now measuring", { at: "start", size: 13, fill: C.ink, cls: "fade" }), 2.2),
+      delay(T(592, 350, "your rate limit, not your strategy", { at: "start", size: 13, fill: C.red, w: 600, cls: "fade" }), 2.25),
+      delay(T(560, 420, "ten bots, one key, one line: everybody waits in it together", { at: "start", size: 10, fill: C.neu2, cls: "fade" }), 2.4),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 04 — THE LAYER
+  // ----------------------------------------------------------------------- //
+  function s4(g) {
+    const srcs = ["Hyperliquid order books", "Binance", "Bybit", "OKX"];
+    srcs.forEach((t, i) => {
+      const y = 96 + i * 62;
+      add(g,
+        delay(E("rect", { x: 40, y, width: 168, height: 40, fill: "#050A08", stroke: C.neu2, "stroke-opacity": .7, class: "rise" }), .1 + i * .12),
+        delay(T(54, y + 26, t, { at: "start", size: 11, fill: C.neu, cls: "fade" }), .18 + i * .12),
+        delay(E("path", { d: `M208 ${y + 20} C 300 ${y + 20} 340 220 420 220`, fill: "none", stroke: C.neu2, "stroke-width": 1, "stroke-opacity": .55, class: "fade" }), .6 + i * .1),
+      );
+    });
+    add(g, delay(lab(40, 78, "COLLECTED ONCE", { at: "start", fill: C.neu2, ls: 3, size: 10 }), .1));
+
+    add(g,
+      E("circle", { cx: 500, cy: 220, r: 96, fill: C.grn, opacity: .04, class: "breathe" }),
+      delay(E("circle", { cx: 500, cy: 220, r: 74, fill: "#02110A", stroke: C.grn, "stroke-width": 1.6, filter: "url(#glowS)", class: "pop" }), .9),
+      delay(T(500, 210, "api.moondev.com", { size: 13.5, fill: C.grn, w: 600, cls: "fade" }), 1.1),
+      delay(lab(500, 232, "PULLS ONCE", { fill: "#2F8C55", ls: 3.6, size: 9.5 }), 1.2),
+      delay(lab(500, 250, "FOR EVERYBODY", { fill: "#2F8C55", ls: 3.6, size: 9.5 }), 1.25),
+    );
+
+    for (let i = 0; i < 10; i++) {
+      const bx = i < 5 ? 736 : 844, by = 96 + (i % 5) * 62;
+      add(g,
+        delay(E("path", { d: `M574 220 C 650 220 ${bx - 60} ${by + 13} ${bx} ${by + 13}`, fill: "none", stroke: C.grn, "stroke-width": 1, "stroke-opacity": .3, class: "fade" }), 1.3 + i * .05),
+        delay(E("rect", { x: bx, y: by, width: 92, height: 26, fill: "#050A08", stroke: C.grn, "stroke-opacity": .45, class: "pop" }), 1.4 + i * .05),
+        delay(T(bx + 12, by + 18, "bot " + String(i + 1).padStart(2, "0"), { at: "start", size: 10, fill: "#2F8C55", cls: "fade" }), 1.5 + i * .05),
+      );
+    }
+    add(g,
+      delay(lab(936, 78, "READ AS OFTEN AS YOU LIKE", { at: "end", fill: C.grn, ls: 2.6, size: 10 }), 2),
+      delay(T(40, 424, "live, open source, and every single call is visible in the repo", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), 2.1),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 05 — THE ONE WAY MIRROR
+  // ----------------------------------------------------------------------- //
+  function s5(g) {
+    const r = rng(77), MX = 520;
+    // face-down position cards
+    for (let i = 0; i < 15; i++) {
+      const x = 48 + (i % 5) * 86, y = 84 + Math.floor(i / 5) * 62;
+      add(g,
+        delay(E("rect", { x, y, width: 70, height: 46, fill: "#080B09", stroke: "#1A241F", class: "pop" }), .1 + i * .035),
+        delay(T(x + 35, y + 30, "?", { size: 20, fill: "#233029", w: 600, cls: "fade" }), .2 + i * .035),
+      );
+    }
+    add(g, delay(lab(48, 66, "YOUR POSITION", { at: "start", fill: C.neu2, ls: 3, size: 10 }), .1));
+
+    // the mirror
+    add(g,
+      delay(E("line", { x1: MX, y1: 40, x2: MX, y2: 300, stroke: "#2A3A32", "stroke-width": 3, class: "fade" }), .7),
+      delay(lab(MX - 12, 54, "CLOSED EXCHANGE", { at: "end", fill: C.neu2, ls: 2.6, size: 9.5 }), .75),
+    );
+
+    // the eye
+    const cx = 700, cy = 176;
+    add(g,
+      delay(E("path", { d: `M${cx - 82} ${cy} C ${cx - 40} ${cy - 54}, ${cx + 40} ${cy - 54}, ${cx + 82} ${cy} C ${cx + 40} ${cy + 54}, ${cx - 40} ${cy + 54}, ${cx - 82} ${cy} Z`, fill: "#150507", stroke: C.red, "stroke-width": 1.8, filter: "url(#glowS)", class: "fade" }), .9),
+      delay(E("circle", { cx, cy, r: 26, fill: "url(#coreR)", class: "pop" }), 1.1),
+      delay(E("circle", { cx, cy, r: 9, fill: "#1A0206", class: "pop" }), 1.2),
+      delay(lab(cx, cy + 78, "THE HOUSE", { fill: C.red, ls: 4.2, size: 12 }), 1.3),
+      delay(T(cx, cy + 98, "sees every position, always has", { size: 11, fill: "#8C3038", cls: "fade" }), 1.35),
+    );
+    // sight lines into the eye
+    for (let i = 0; i < 5; i++) {
+      const y = 96 + i * 44;
+      add(g, delay(E("path", { d: `M${MX + 6} ${y} L${cx - 84} ${cy}`, fill: "none", stroke: C.red, "stroke-width": 1, "stroke-opacity": .3, class: "fade" }), 1.4 + i * .06));
+    }
+
+    const steps = ["SEE THE POSITION", "HUNT IT", "TAKE THE LIQ FEE", "REVERSE THE MARKET"];
+    steps.forEach((t, i) => {
+      const x = 48 + i * 226;
+      add(g,
+        delay(E("rect", { x, y: 340, width: 200, height: 34, fill: "#150507", stroke: "#4A1216", class: "rise" }), 1.7 + i * .14),
+        delay(T(x + 100, 362, t, { size: 11, fill: "#B4525A", cls: "fade" }), 1.78 + i * .14),
+        i < 3 ? delay(T(x + 213, 362, "→", { size: 13, fill: "#4A1216", cls: "fade" }), 1.85 + i * .14) : null,
+      );
+    });
+    add(g, delay(T(48, 404, "the old stories: liquidation fees are ginormous, and then you run it back", { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), 2.3));
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 06 — THE FLIP
+  // ----------------------------------------------------------------------- //
+  function s6(g) {
+    const r = rng(101), MX = 520;
+    const sides = ["LONG", "SHORT", "LONG", "SHORT", "LONG",
+                   "SHORT", "LONG", "LONG", "SHORT", "LONG",
+                   "LONG", "SHORT", "SHORT", "LONG", "SHORT"];
+    for (let i = 0; i < 15; i++) {
+      const x = 48 + (i % 5) * 86, y = 84 + Math.floor(i / 5) * 62;
+      const s = sides[i], c = s === "LONG" ? C.grn : C.red;
+      add(g,
+        delay(E("rect", { x, y, width: 70, height: 46, fill: "#050A08", stroke: c, "stroke-opacity": .5, class: "pop" }), .08 + i * .035),
+        delay(T(x + 35, y + 22, s, { size: 10, fill: c, w: 600, cls: "fade" }), .16 + i * .035),
+        delay(E("line", { x1: x + 16, y1: y + 32, x2: x + 54, y2: y + 32, stroke: c, "stroke-opacity": .35, class: "fade" }), .18 + i * .035),
+        delay(T(x + 35, y + 41, "visible", { size: 8, fill: C.neu2, cls: "fade" }), .2 + i * .035),
+      );
+    }
+    add(g, delay(lab(48, 66, "EVERY POSITION, FACE UP", { at: "start", fill: C.grn, ls: 3, size: 10 }), .1));
+
+    // shattered mirror
+    let d = `M${MX} 40`;
+    for (let i = 1; i <= 12; i++) d += ` L${MX + (r() - .5) * 34} ${40 + i * 30}`;
+    add(g, delay(E("path", { d, fill: "none", stroke: "#2A3A32", "stroke-width": 2.4, "stroke-opacity": .8, class: "fade" }), .7));
+    for (let i = 0; i < 9; i++) {
+      const y = 60 + r() * 320, x = MX + (r() - .5) * 60;
+      add(g, delay(E("path", { d: `M${x} ${y} l${6 + r() * 12} ${4 + r() * 8} l${-4 - r() * 8} ${6 + r() * 8} Z`, fill: "#0F1613", stroke: "#2A3A32", "stroke-opacity": .7, class: "pop" }), .85 + i * .05));
+    }
+    add(g, delay(lab(MX - 14, 54, "HYPERLIQUID", { at: "end", fill: C.grn, ls: 2.6, size: 9.5 }), .8));
+
+    // eyes both ways
+    const eye = (cx, cy, col, s) => {
+      const gg = E("g", { class: "fade" });
+      add(gg,
+        E("path", { d: `M${cx - 44 * s} ${cy} C ${cx - 22 * s} ${cy - 30 * s}, ${cx + 22 * s} ${cy - 30 * s}, ${cx + 44 * s} ${cy} C ${cx + 22 * s} ${cy + 30 * s}, ${cx - 22 * s} ${cy + 30 * s}, ${cx - 44 * s} ${cy} Z`, fill: "#02110A", stroke: col, "stroke-width": 1.5 }),
+        E("circle", { cx, cy, r: 13 * s, fill: col, opacity: .85 }),
+        E("circle", { cx, cy, r: 5 * s, fill: "#02110A" }),
+      );
+      return gg;
+    };
+    add(g,
+      delay(eye(700, 150, C.grn, 1), 1),
+      delay(lab(700, 200, "EVERY TRADER", { fill: C.grn, ls: 3.4, size: 10.5 }), 1.1),
+      delay(E("path", { d: "M656 150 L560 150 M568 145 L560 150 L568 155", fill: "none", stroke: C.grn, "stroke-width": 1.3, class: "fade" }), 1.2),
+      delay(E("path", { d: "M744 150 L860 150 M852 145 L860 150 L852 155", fill: "none", stroke: C.grn, "stroke-width": 1.3, class: "fade" }), 1.25),
+      delay(eye(908, 150, C.grn, .62), 1.3),
+      delay(T(742, 262, "THE HUNTED CAN SEE THE HUNT", { size: 19, fill: C.grn, w: 600, filter: "url(#glowS)", cls: "rise" }), 1.5),
+      delay(T(742, 290, "everyone can see everyone, for the first time", { size: 12, fill: "#2F8C55", cls: "fade" }), 1.65),
+      delay(E("line", { x1: 560, y1: 320, x2: 940, y2: 320, stroke: C.edge, class: "fade" }), 1.7),
+      delay(T(560, 348, "so the only question left is:", { at: "start", size: 11.5, fill: C.neu, cls: "fade" }), 1.75),
+      delay(T(560, 372, "who is about to get force sold, and at what price?", { at: "start", size: 12.5, fill: C.ink, cls: "fade" }), 1.8),
+      delay(T(48, 424, "the exchange edge that lasted a decade just became public data", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), 2),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 07 — THE IMPOSSIBLE PART
+  // ----------------------------------------------------------------------- //
+  function s7(g) {
+    const r = rng(1201);
+    const stages = [
+      { x: 40, t: "EVERY TRADE", s: "follow the whole order book" },
+      { x: 268, t: "EVERY WALLET", s: "pull the address from each fill" },
+      { x: 496, t: "ONE CALL EACH", s: "an API call per wallet" },
+    ];
+    stages.forEach((st, i) => {
+      add(g,
+        delay(E("rect", { x: st.x, y: 82, width: 196, height: 66, fill: "#050A08", stroke: C.neu2, "stroke-opacity": .75, class: "rise" }), .1 + i * .2),
+        delay(T(st.x + 14, 110, st.t, { at: "start", size: 14, fill: C.ink, w: 600, cls: "fade" }), .2 + i * .2),
+        delay(T(st.x + 14, 130, st.s, { at: "start", size: 9.5, fill: C.neu2, cls: "fade" }), .25 + i * .2),
+        i < 2 ? delay(E("path", { d: `M${st.x + 200} 115 L${st.x + 224} 115 M${st.x + 216} 110 L${st.x + 224} 115 L${st.x + 216} 120`, fill: "none", stroke: C.neu2, "stroke-width": 1.2, class: "fade" }), .7 + i * .2) : null,
+      );
+    });
+
+    // the flood of calls into the wall
+    for (let i = 0; i < 46; i++) {
+      const y = 172 + r() * 92;
+      add(g, delay(E("line", { x1: 496 + r() * 180, y1: y, x2: 856, y2: 190 + r() * 60, stroke: C.red, "stroke-width": .8, "stroke-opacity": .28, class: "fade" }), .9 + i * .012));
+    }
+    add(g,
+      delay(E("rect", { x: 862, y: 82, width: 44, height: 186, fill: "#2E0409", stroke: C.red, "stroke-opacity": .85, filter: "url(#glowS)", class: "wipe" }), 1.2),
+      delay(lab(884, 292, "RATE LIMITED", { fill: C.red, ls: 3, size: 10.5, cls: "blink" }), 1.5),
+      delay(T(40, 292, "one person, ten bots, and thousands of wallets: it cannot be done", { at: "start", size: 11, fill: "#8C3038", cls: "fade" }), 1.55),
+    );
+
+    // the green bypass
+    add(g,
+      delay(E("line", { x1: 40, y1: 318, x2: 940, y2: 318, stroke: C.edge, class: "fade" }), 1.6),
+      delay(E("rect", { x: 40, y: 340, width: 250, height: 60, fill: "#02110A", stroke: C.grn, "stroke-opacity": .6, class: "rise" }), 1.7),
+      delay(T(56, 368, "MOON DEV API", { at: "start", size: 15, fill: C.grn, w: 600, cls: "fade" }), 1.8),
+      delay(T(56, 388, "does the whole crawl once", { at: "start", size: 10, fill: "#2F8C55", cls: "fade" }), 1.85),
+      delay(E("path", { d: "M290 370 L700 370 M692 364 L700 370 L692 376", fill: "none", stroke: C.grn, "stroke-width": 2.4, filter: "url(#glowS)", class: "fade" }), 1.95),
+      delay(lab(495, 356, "ONE CALL", { fill: C.grn, ls: 4, size: 11.5 }), 2.05),
+      delay(E("rect", { x: 712, y: 340, width: 228, height: 60, fill: "#050A08", stroke: C.grn, "stroke-opacity": .5, class: "rise" }), 2.1),
+      delay(T(728, 368, "EVERY BOT YOU RUN", { at: "start", size: 15, fill: C.grn, w: 600, cls: "fade" }), 2.2),
+      delay(T(728, 388, "reads the same fresh cache", { at: "start", size: 10, fill: "#2F8C55", cls: "fade" }), 2.25),
+      delay(T(40, 428, "this is Moon Dev's favorite part of the whole repo", { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), 2.4),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 08 — THE CASCADE MAP  (real live read, 2026-08-14)
+  // ----------------------------------------------------------------------- //
+  function s8(g) {
+    add(g,
+      delay(T(40, 52, "7,325", { at: "start", size: 30, fill: C.grn, w: 600, filter: "url(#glowS)", cls: "rise" }), .1),
+      delay(lab(146, 50, "POSITIONS TRACKED RIGHT NOW", { at: "start", fill: "#2F8C55", ls: 2.8, size: 10 }), .2),
+      delay(lab(146, 66, "MINIMUM POSITION VALUE $75,000", { at: "start", fill: C.neu2, ls: 2.4, size: 9 }), .25),
+      delay(E("line", { x1: 40, y1: 82, x2: 660, y2: 82, stroke: C.edge, class: "fade" }), .3),
+    );
+
+    const heads = [["SYMBOL", 40], ["VALUE", 214], ["LEV", 330], ["LIQ PRICE", 420], ["AWAY", 608]];
+    heads.forEach(([t, x]) => add(g, delay(lab(x, 102, t, { at: "start", fill: C.neu2, ls: 2.4, size: 8.5 }), .35)));
+
+    const rows = [
+      { s: "xyz:SP500", side: "LONG", c: C.grn, v: "$14,852,536", lev: "41x", liq: "7,692.85", d: "1.15%", w: 1.15 },
+      { s: "BTC", side: "SHORT", c: C.red, v: "$8,214,882", lev: "40x", liq: "64,020.17", d: "1.47%", w: 1.47 },
+      { s: "ETH", side: "LONG", c: C.grn, v: "$4,707,500", lev: "25x", liq: "1,859.18", d: "1.27%", w: 1.27 },
+    ];
+    rows.forEach((rw, i) => {
+      const y = 122 + i * 54;
+      add(g,
+        delay(E("rect", { x: 40, y, width: 620, height: 44, fill: "#050A08", stroke: rw.c, "stroke-opacity": .3, class: "rise" }), .4 + i * .18),
+        delay(T(52, y + 22, rw.s, { at: "start", size: 14, fill: C.ink, w: 600, cls: "fade" }), .5 + i * .18),
+        delay(T(52, y + 37, rw.side, { at: "start", size: 9.5, fill: rw.c, cls: "fade" }), .52 + i * .18),
+        delay(T(214, y + 28, rw.v, { at: "start", size: 14, fill: C.amb, cls: "fade" }), .55 + i * .18),
+        delay(T(330, y + 28, rw.lev, { at: "start", size: 13, fill: C.neu, cls: "fade" }), .58 + i * .18),
+        delay(T(420, y + 28, rw.liq, { at: "start", size: 14, fill: C.red, cls: "fade" }), .6 + i * .18),
+        delay(E("rect", { x: 506, y: y + 16, width: rw.w * 30, height: 12, fill: C.red, opacity: .5, class: "wipe" }), .68 + i * .18),
+        delay(T(650, y + 27, rw.d, { at: "end", size: 13, fill: C.red, w: 600, cls: "fade" }), .72 + i * .18),
+      );
+    });
+
+    add(g,
+      delay(T(52, 302, "the SP500 long is already down -$44,589 unrealized", { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), 1.1),
+      delay(E("rect", { x: 40, y: 318, width: 620, height: 62, fill: "#150507", stroke: C.red, "stroke-opacity": .6, class: "fade" }), 1.2),
+      delay(lab(56, 340, "CLOSEST TO DEATH", { at: "start", fill: C.red, ls: 3, size: 10 }), 1.3),
+      delay(T(56, 364, "BTC SHORT · 40x · 0.36% away", { at: "start", size: 13, fill: C.ink, cls: "blink" }), 1.4),
+      delay(T(400, 364, "BTC SHORT $1,198,767 · 0.39% away", { at: "start", size: 12, fill: "#B4525A", cls: "fade" }), 1.45),
+      delay(T(40, 424, "GET /api/positions.json  ·  live read 2026-08-14  ·  every number on this slide is real", { at: "start", size: 10, fill: C.neu2, cls: "fade" }), 1.6),
+    );
+
+    // the cyan callout
+    add(g,
+      delay(E("rect", { x: 692, y: 96, width: 262, height: 292, fill: "#03141A", stroke: C.cyn, "stroke-opacity": .55, class: "rise" }), 1),
+      delay(T(823, 168, "$100,000,000", { size: 23, fill: C.cyn, w: 600, filter: "url(#glowS)", cls: "fade" }), 1.15),
+      delay(lab(823, 194, "ONE TRADER WALKED IN", { fill: "#1B8FA3", ls: 3, size: 10 }), 1.25),
+      delay(E("line", { x1: 714, y1: 216, x2: 932, y2: 216, stroke: "#0E3A44", class: "fade" }), 1.3),
+      delay(T(823, 246, "most positions are", { size: 12, fill: C.neu, cls: "fade" }), 1.35),
+      delay(T(823, 266, "not bigger than $5M", { size: 12, fill: C.neu, cls: "fade" }), 1.4),
+      delay(T(823, 300, "so what does a", { size: 12.5, fill: C.ink, cls: "fade" }), 1.45),
+      delay(T(823, 320, "$100M position MEAN?", { size: 12.5, fill: C.cyn, w: 600, cls: "fade" }), 1.5),
+      delay(lab(823, 356, "SEEN BY MOON DEV", { fill: C.neu2, ls: 2.4, size: 8.5 }), 1.55),
+      delay(lab(823, 372, "NOT IN THE SNAPSHOT ABOVE", { fill: C.neu2, ls: 2.4, size: 8.5 }), 1.6),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 09 — FOUR VENUES, ONE CALL  (real live read, 2026-08-14)
+  // ----------------------------------------------------------------------- //
+  function s9(g) {
+    const wins = [
+      { t: "5m", v: "$136,566.80", n: "183 liqs", on: 1 },
+      { t: "15m", v: "$939,772.43", n: "629 liqs", on: 1 },
+      { t: "1h", v: "· · ·", n: "", on: 0 },
+      { t: "2h", v: "· · ·", n: "", on: 0 },
+      { t: "3h", v: "· · ·", n: "", on: 0 },
+      { t: "4h", v: "· · ·", n: "", on: 0 },
+    ];
+    add(g, delay(lab(40, 44, "SIX ROLLING WINDOWS, ONE ENDPOINT", { at: "start", fill: C.amb, ls: 3, size: 10 }), .1));
+    wins.forEach((w, i) => {
+      const x = 40 + i * 153;
+      add(g,
+        delay(E("rect", { x, y: 58, width: 142, height: 62, fill: w.on ? "#0A0704" : "#050807", stroke: w.on ? C.amb : "#1A241F", "stroke-opacity": w.on ? .7 : 1, class: "rise" }), .15 + i * .09),
+        delay(T(x + 12, 78, w.t, { at: "start", size: 12, fill: w.on ? C.amb : "#233029", w: 600, cls: "fade" }), .2 + i * .09),
+        delay(T(x + 12, 100, w.v, { at: "start", size: w.on ? 13 : 14, fill: w.on ? C.ink : "#233029", cls: "fade" }), .25 + i * .09),
+        w.n ? delay(T(x + 12, 114, w.n, { at: "start", size: 9, fill: C.neu2, cls: "fade" }), .3 + i * .09) : null,
+      );
+    });
+
+    // long vs short balance for the 5m window
+    add(g,
+      delay(lab(40, 158, "5M WINDOW · LONG VS SHORT", { at: "start", fill: C.neu, ls: 3, size: 10 }), .8),
+      delay(E("rect", { x: 40, y: 170, width: 531, height: 30, fill: C.grn, opacity: .28, class: "wipe" }), .9),
+      delay(E("rect", { x: 571, y: 170, width: 349, height: 30, fill: C.red, opacity: .28, class: "wipe" }), .95),
+      delay(E("line", { x1: 571, y1: 166, x2: 571, y2: 204, stroke: C.ink, "stroke-width": 1.5, class: "fade" }), 1.1),
+      delay(T(52, 190, "LONGS  $80,639.54", { at: "start", size: 13, fill: C.grn, w: 600, cls: "fade" }), 1.15),
+      delay(T(52, 220, "128 liquidations", { at: "start", size: 10, fill: "#2F8C55", cls: "fade" }), 1.2),
+      delay(T(908, 190, "$55,927.26  SHORTS", { at: "end", size: 13, fill: C.red, w: 600, cls: "fade" }), 1.25),
+      delay(T(908, 220, "55 liquidations", { at: "end", size: 10, fill: "#8C3038", cls: "fade" }), 1.3),
+    );
+
+    // per exchange, same 5m window
+    const ex = [
+      { n: "Binance", v: "$86,390.49", c: "124 liqs", p: .6326, col: C.amb },
+      { n: "OKX", v: "$47,853.84", c: "56 liqs", p: .3504, col: C.ink },
+      { n: "Bybit", v: "$2,322.47", c: "3 liqs", p: .0170, col: C.neu },
+      { n: "Hyperliquid", v: "$0.00", c: "0 liqs", p: 0, col: C.cyn },
+    ];
+    add(g, delay(lab(40, 258, "SAME WINDOW, BROKEN OUT BY VENUE", { at: "start", fill: C.neu, ls: 3, size: 10 }), 1.35));
+    ex.forEach((e, i) => {
+      const y = 272 + i * 34;
+      add(g,
+        delay(T(40, y + 18, e.n, { at: "start", size: 12.5, fill: e.col, cls: "fade" }), 1.4 + i * .12),
+        delay(E("rect", { x: 156, y: y + 6, width: 470, height: 16, fill: "#080F0C", class: "fade" }), 1.42 + i * .12),
+        e.p > 0 ? delay(E("rect", { x: 156, y: y + 6, width: 470 * e.p, height: 16, fill: e.col, opacity: .45, class: "wipe" }), 1.45 + i * .12) : null,
+        delay(T(760, y + 18, e.v, { at: "end", size: 12.5, fill: C.ink, cls: "fade" }), 1.5 + i * .12),
+        delay(T(860, y + 18, e.c, { at: "end", size: 10.5, fill: C.neu2, cls: "fade" }), 1.52 + i * .12),
+      );
+    });
+
+    add(g,
+      delay(T(40, 424, "GET /api/all_liquidations/totals.json  ·  updates every 20s  ·  live read 2026-08-14", { at: "start", size: 10, fill: C.neu2, cls: "fade" }), 2),
+      delay(lab(940, 424, "1H TO 4H NOT READ FOR THIS DECK", { at: "end", fill: C.neu2, ls: 2.2, size: 8.5 }), 2.05),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // 10 — SETUP, THEN TRIGGER
+  // ----------------------------------------------------------------------- //
+  function s10(g) {
+    const r = rng(444);
+    const panel = (x, title, col, sub, d) => add(g,
+      delay(E("rect", { x, y: 66, width: 392, height: 212, fill: "#050A08", stroke: col, "stroke-opacity": .45, class: "rise" }), d),
+      delay(lab(x + 16, 92, title, { at: "start", fill: col, ls: 3, size: 10.5 }), d + .08),
+      delay(T(x + 16, 268, sub, { at: "start", size: 10, fill: C.neu2, cls: "fade" }), d + .12),
+    );
+    panel(40, "BEFORE THE MOVE", C.grn, "positions near liquidation: where the bodies are buried", .1);
+    panel(568, "WHEN IT FIRES", C.red, "multi venue liquidations: the cascade actually printing", .3);
+
+    // left: price line hovering above stacked liq levels
+    let dL = "M60 130";
+    for (let i = 1; i <= 24; i++) dL += ` L${60 + i * 14} ${130 + (r() - .5) * 16}`;
+    const pl = E("path", { d: dL, fill: "none", stroke: C.ink, "stroke-width": 1.6, class: "draw" });
+    pl.style.setProperty("--len", "420"); pl.style.animationDelay = ".5s";
+    add(g, pl);
+    [178, 200, 222, 244].forEach((y, i) => add(g,
+      delay(E("line", { x1: 60, y1: y, x2: 372, y2: y, stroke: C.grn, "stroke-width": 1.4, "stroke-opacity": .55, "stroke-dasharray": "5 5", class: "fade" }), .8 + i * .1),
+      delay(T(380, y + 4, ["$14.8M", "$8.2M", "$4.7M", "$1.2M"][i], { at: "start", size: 9.5, fill: "#2F8C55", cls: "fade" }), .85 + i * .1),
+    ));
+    add(g, delay(T(60, 158, "price", { at: "start", size: 9.5, fill: C.neu2, cls: "fade" }), .7));
+
+    // centre arrow
+    add(g,
+      delay(E("path", { d: "M446 172 L556 172 M548 166 L556 172 L548 178", fill: "none", stroke: C.amb, "stroke-width": 2, filter: "url(#glowS)", class: "fade" }), 1.4),
+      delay(lab(501, 158, "PRICE ARRIVES", { fill: C.amb, ls: 2.6, size: 9.5 }), 1.5),
+    );
+
+    // right: price crashing through, bursts firing
+    let dR = "M588 130";
+    for (let i = 1; i <= 24; i++) dR += ` L${588 + i * 14} ${130 + i * 4.6 + (r() - .5) * 14}`;
+    const pr = E("path", { d: dR, fill: "none", stroke: C.red, "stroke-width": 2, filter: "url(#glowS)", class: "draw" });
+    pr.style.setProperty("--len", "460"); pr.style.animationDelay = "1.6s";
+    add(g, pr);
+    [178, 200, 222, 244].forEach((y, i) => add(g,
+      delay(E("line", { x1: 588, y1: y, x2: 940, y2: y, stroke: "#4A1216", "stroke-width": 1.2, "stroke-dasharray": "5 5", class: "fade" }), 1.7 + i * .1),
+    ));
+    [[700, 178], [762, 200], [824, 222], [886, 244]].forEach(([x, y], i) => add(g,
+      delay(E("circle", { cx: x, cy: y, r: 16, fill: "url(#haloR)", class: "pop" }), 2 + i * .16),
+      delay(E("circle", { cx: x, cy: y, r: 5, fill: C.red, filter: "url(#glowS)", class: "pop" }), 2.05 + i * .16),
+    ));
+
+    // the loop
+    add(g,
+      delay(E("circle", { cx: 96, cy: 358, r: 34, fill: "none", stroke: "#0C6B3B", "stroke-width": 1.2, "stroke-dasharray": "4 7" }), 2.2),
+      delay(T(96, 364, "20s", { size: 16, fill: C.grn, w: 600, cls: "fade" }), 2.3),
+      delay(T(154, 344, "the collector never stops, so the map is never stale", { at: "start", size: 12, fill: C.ink, cls: "fade" }), 2.35),
+      delay(T(154, 368, "and your incubation goes back to measuring the strategy", { at: "start", size: 12, fill: C.grn, cls: "fade" }), 2.4),
+      delay(T(154, 390, "instead of measuring your rate limit", { at: "start", size: 12, fill: C.neu, cls: "fade" }), 2.45),
+      delay(T(40, 428, "setup, then trigger: that is the whole reason both features live in one repo", { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), 2.6),
+    );
+  }
+
+  // ----------------------------------------------------------------------- //
+  // THE OTHER EXAMPLES
+  // ----------------------------------------------------------------------- //
+  const EXAMPLES = [
+    "01_liquidations", "02_positions", "03_whales", "04_events",
+    "05_contracts", "06_ticks", "07_orderflow", "08_trades",
+    "09_smart_money", "10_user_positions", "11_user_fills", "12_hlp_positions",
+    "13_binance_liquidations", "14_multi_liquidations", "15_buyers", "16_depositors",
+    "17_hlp_sentiment", "18_hlp_analytics", "19_market_data", "20_hip3_liquidations",
+    "21_hip3_market_data", "22_hip3_dashboard", "23_all_functions", "24_position_snapshots",
+    "25_ai_chat", "27_bulk_binance_liquidations", "28_cvd_scanner", "29_btc_bulk_liquidations_csv",
+    "30_btc_near_liquidation", "31_btc_liquidation_stream", "32_btc_cvd_scanner", "33_btc_funding_oi_comparison",
+    "34_polymarket_traders", "35_btc_tick_stream", "35_ohlcv_data", "36_hl_direct_proxy",
+    "37_liquidation_totals", "38_fills_polling", "39_wallet_flow",
+  ];
+  const COVERED = ["02_positions", "14_multi_liquidations", "24_position_snapshots", "37_liquidation_totals"];
+
+  function sMore(g) {
+    add(g,
+      delay(T(40, 44, "39", { at: "start", size: 26, fill: C.grn, w: 600, cls: "rise" }), .1),
+      delay(lab(96, 42, "RUNNABLE EXAMPLES IN examples/", { at: "start", fill: "#2F8C55", ls: 2.8, size: 10 }), .18),
+      delay(lab(940, 42, "THIS DECK COVERED FOUR", { at: "end", fill: C.amb, ls: 2.6, size: 9.5 }), .22),
+      delay(E("line", { x1: 40, y1: 56, x2: 940, y2: 56, stroke: C.edge, class: "fade" }), .25),
+    );
+    EXAMPLES.forEach((n, i) => {
+      const col = i % 5, row = Math.floor(i / 5);
+      const x = 40 + col * 180, y = 74 + row * 36, on = COVERED.includes(n);
+      add(g,
+        delay(E("rect", { x, y, width: 172, height: 28, fill: on ? "#02110A" : "#050807", stroke: on ? C.grn : "#141C18", "stroke-opacity": on ? .7 : 1, class: on ? "pop" : "fade" }), .3 + i * .016),
+        delay(T(x + 9, y + 19, n, { at: "start", size: 8.5, fill: on ? C.grn : "#33443B", w: on ? 600 : 400, cls: "fade" }), .34 + i * .016),
+      );
+    });
+    add(g,
+      delay(E("rect", { x: 40, y: 374, width: 892, height: 42, fill: "#050A08", stroke: C.grn, "stroke-opacity": .45, class: "rise" }), 1.2),
+      delay(T(56, 401, "github.com/moondevonyt/Hyperliquid-Data-Layer-API", { at: "start", size: 16, fill: C.grn, w: 600, cls: "fade" }), 1.3),
+      delay(lab(916, 400, "GO READ THE OTHER 35", { at: "end", fill: C.neu2, ls: 3, size: 9.5 }), 1.35),
+    );
+  }
+
+  // ======================================================================= //
+  // PART ONE — the idea. Ten slides, in the order the story runs.
+  // ======================================================================= //
+  const SLIDES = [
+    { tag: "COLD OPEN", fn: "the loss",
+      h: "Six months of code, one bot, and <em>ten thousand dollars gone</em>.",
+      say: "Moon Dev learned to code by hand, shipped a bot, thought he was going to be a billionaire, and lost $10,000.",
+      build: s1 },
+    { tag: "THE FRAMEWORK", fn: "R → B → I",
+      h: "So he built a framework: <em>research, backtest, incubate</em>.",
+      say: "Ideas get researched, backtested until the trash falls out, then survivors go live at ten dollars a trade.",
+      build: s2 },
+    { tag: "THE WALL", fn: "the rate limit",
+      h: "Ten bots hitting the same endpoints all get <em>rate limited</em>.",
+      say: "Almost nobody reaches this wall because almost nobody automates, and the ones who do find their results ruined by it.",
+      build: s3 },
+    { tag: "THE LAYER", fn: "api.moondev.com",
+      h: "So pull the data <em>once</em>, and let every bot read it.",
+      say: "One collector does the hard crawl for everybody, which is the entire reason this repo exists.",
+      build: s4 },
+    { tag: "ONE WAY MIRROR", fn: "hero 1 · the history",
+      h: "On a closed exchange the only one who sees your position is <em>the house</em>.",
+      say: "Binance can see yours, BitMEX could see yours, and the old stories are about exchanges hunting a position for the liquidation fee and then reversing the market.",
+      build: s5 },
+    { tag: "THE FLIP", fn: "hero 1 · the change",
+      h: "Hyperliquid made every position public, so <em>the hunted can see the hunt</em>.",
+      say: "The edge that belonged only to the exchange for a decade is now data that anyone is allowed to read.",
+      build: s6 },
+    { tag: "THE HARD PART", fn: "hero 1 · why nobody does it",
+      h: "Doing it yourself means <em>one API call per wallet</em>, forever.",
+      say: "You would have to follow every trade, pull every address, then poll each one, and no single person survives that rate limit.",
+      build: s7 },
+    { tag: "CASCADE MAP", fn: "hero 1 · the payoff",
+      h: "Now you can see the exact price where <em>millions get force sold</em>.",
+      say: "7,325 positions read live today, and the closest one is a BTC short sitting 0.36% from getting wiped.",
+      build: s8 },
+    { tag: "FOUR VENUES", fn: "hero 2 · one call",
+      h: "One call gives you <em>every venue</em>, split long against short.",
+      say: "Binance, Bybit, OKX and Hyperliquid in six rolling windows, so you see the moment one side starts getting wrecked everywhere at once.",
+      build: s9 },
+    { tag: "SETUP → TRIGGER", fn: "both heroes together",
+      h: "Positions show the <em>setup</em>. Liquidations show the <em>trigger</em>.",
+      say: "One tells you where the bodies are buried before the move, the other tells you the second the cascade fires.",
+      build: s10 },
+  ];
+
+  // ======================================================================= //
+  // PART TWO — the code. Four hero examples only, out of thirty nine.
+  // ======================================================================= //
+  const CODE = [
+    {
+      tag: "docstring", file: "examples/02_positions.py",
+      fn: "02_positions.py  ·  the module docstring",
+      say: "Every flag this example takes, written down before a single line of logic.",
+      hi: [27], doc: [1, 18], trim: 1,
+      code: `
+"""
+🌙 Moon Dev's Position Dashboard
+================================
+Beautiful terminal dashboard for tracking large positions
+near liquidation
+
+Built with love by Moon Dev 🚀
+Using the Rich library for gorgeous terminal output
+
+Usage:
+  python 02_positions.py  # All symbols - top 50 (crypto + HIP-3)
+  python 02_positions.py --crypto  # CRYPTO ONLY positions
+  python 02_positions.py --hip3    # HIP-3 ONLY (stocks, FX)
+  python 02_positions.py BTC       # BTC positions only
+  python 02_positions.py ETH       # ETH positions only
+  python 02_positions.py HYPE      # HYPE positions only
+  python 02_positions.py --list    # Show all 182 symbols
+"""
+
+import sys
+import os
+from datetime import datetime
+
+# Add parent directory to path to import api.py
+sys.path.insert(0, os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))))
+from api import MoonDevAPI
+
+from rich.console import Console
+from rich.table import Table
+`,
+    },
+    {
+      tag: "risk bands", file: "examples/02_positions.py",
+      fn: "get_risk_color()  ·  how close is too close",
+      say: "Under two percent from liquidation is the band that actually matters.",
+      hi: [10, 28], trim: 1,
+      code: `
+def get_risk_color(distance_pct):
+    """Get color based on distance to liquidation percentage"""
+    if distance_pct is None:
+        return "white"
+
+    if isinstance(distance_pct, str):
+        distance_pct = float(distance_pct.replace('%', ''))
+
+    # Lower percentage = closer to liquidation = higher risk
+    if distance_pct < 2:
+        return "bold red"
+    elif distance_pct < 5:
+        return "red"
+    elif distance_pct < 10:
+        return "yellow"
+    elif distance_pct < 20:
+        return "cyan"
+    else:
+        return "green"
+
+
+def create_risk_analysis(positions_data):
+    """Create a risk analysis panel"""
+    longs = positions_data.get('longs', [])
+    shorts = positions_data.get('shorts', [])
+    all_positions = longs + shorts
+
+    critical = []  # < 2%
+    high = []      # 2-5%
+    medium = []    # 5-10%
+    moderate = []  # 10-20%
+    low = []       # > 20%
+`,
+    },
+    {
+      tag: "the call", file: "examples/02_positions.py",
+      fn: "main()  ·  four ways to ask for positions",
+      say: "This is the whole point: one client, one line, no wallet crawling.",
+      hi: [26], trim: 1,
+      code: `
+def main():
+    """Main function to run the position dashboard"""
+    console.print(create_banner(banner_symbol))
+
+    # Initialize API
+    console.print(
+        "[bold cyan]🌙 Moon Dev: Initializing API...[/bold cyan]")
+    api = MoonDevAPI()
+
+    if not api.api_key:
+        console.print("[bold red]❌ No API key found![/bold red]")
+        return
+
+    console.print("[green]✅ API Key loaded[/green]")
+
+    # Fetch positions data based on filter
+    if symbol:
+        all_data = api.get_all_positions()
+        symbol_data = all_data.get('symbols', {}).get(symbol.upper())
+        positions_data = symbol_data
+    elif market_filter == 'crypto':
+        positions_data = api.get_crypto_positions()
+    elif market_filter == 'hip3':
+        positions_data = api.get_hip3_positions()
+    else:
+        positions_data = api.get_positions()
+
+    stats_panel = create_stats_panel(positions_data, symbol)
+    coin_panel = create_coin_distribution(positions_data)
+    risk_panel = create_risk_analysis(positions_data)
+    whale_panel = create_top_whales_panel(positions_data)
+`,
+    },
+    {
+      tag: "the tracker", file: "examples/24_position_snapshots.py",
+      fn: "24_position_snapshots.py  ·  the settings that matter",
+      say: "Fifteen percent of liquidation, ten thousand dollar floor, a snapshot every minute.",
+      hi: [7, 27], doc: [1, 16], trim: 1,
+      code: `
+"""
+Moon Dev's Position Snapshot Dashboard
+Track Positions Near Liquidation
+Built with love by Moon Dev
+Run with: python examples/24_position_snapshots.py
+
+Tracks positions within 15% of liquidation on HyperLiquid.
+Symbols: BTC, ETH, SOL, XRP, HYPE
+Minimum position value: $10k
+Snapshot frequency: 1 minute
+
+Use cases:
+- Identify potential liquidation cascades
+- Spot short/long squeeze setups
+- Monitor at-risk whale positions
+"""
+
+from api import MoonDevAPI
+from datetime import datetime
+from rich.console import Console
+from rich.table import Table
+
+# Initialize Rich console
+console = Console()
+
+# Tracked symbols
+TRACKED_SYMBOLS = ['BTC', 'ETH', 'SOL', 'XRP', 'HYPE']
+
+def get_risk_color(distance_pct):
+    """Get color based on distance to liquidation"""
+    if distance_pct < 2:
+        return "bold red"
+`,
+    },
+    {
+      tag: "top ten", file: "examples/24_position_snapshots.py",
+      fn: "display_top_at_risk()  ·  who dies first",
+      say: "Ten rows, sorted by distance, and every one of them is a real wallet.",
+      hi: [11, 25], trim: 1,
+      code: `
+def display_top_at_risk(positions):
+    """Display top positions closest to liquidation"""
+    table = Table(box=box.ROUNDED, border_style="red",
+                  header_style="bold yellow", padding=(0, 1))
+    table.add_column("Symbol", style="cyan", justify="center")
+    table.add_column("Side", justify="center", width=8)
+    table.add_column("Position Value", style="yellow", justify="right")
+    table.add_column("Liq Price", style="red", justify="right")
+    table.add_column("Distance", justify="right", width=12)
+
+    for i, pos in enumerate(positions[:10], 1):
+        distance = pos.get('distance_pct',
+                           pos.get('liquidation_distance_pct', 0))
+        side = pos.get('side', 'unknown')
+
+        if side.lower() == 'long':
+            side_display = "[green]LONG[/green]"
+        else:
+            side_display = "[red]SHORT[/red]"
+
+        table.add_row(
+            pos.get('symbol', pos.get('coin', '?')),
+            side_display,
+            format_usd(pos.get('position_value', 0)),
+            f"\${pos.get('liquidation_price', 0):,.2f}",
+            f"[{get_risk_color(distance)}]"
+            f"{format_pct(distance)}[/{get_risk_color(distance)}]",
+        )
+
+    console.print(table)
+`,
+    },
+    {
+      tag: "four venues", file: "examples/14_multi_liquidations.py",
+      fn: "display_exchange_status()  ·  every venue in one loop",
+      say: "Four exchanges, four methods, one client, and no keys of your own on any of them.",
+      hi: [11], trim: 1,
+      code: `
+def display_exchange_status(api):
+    """Display connection status for each exchange"""
+    exchanges = [
+        ("Hyperliquid", "💎", "cyan", api.get_liquidations),
+        ("Binance", "🟡", "yellow", api.get_binance_liquidations),
+        ("Bybit", "🟠", "orange1", api.get_bybit_liquidations),
+        ("OKX", "⚪", "white", api.get_okx_liquidations),
+    ]
+
+    panels = []
+    for name, emoji, color, func in exchanges:
+        try:
+            data = func("10m")
+            if isinstance(data, list):
+                count = len(data)
+            elif isinstance(data, dict):
+                count = len(data.get('liquidations',
+                                     data.get('data', [])))
+
+            status = "[green]✅ CONNECTED[/green]"
+            data_info = f"{count} liqs (10m)"
+        except Exception as e:
+            status = "[red]❌ ERROR[/red]"
+            data_info = str(e)[:30]
+
+        panels.append(Panel(
+            f"[bold {color}]{emoji} {name}[/bold {color}]\\n"
+            f"{status}\\n[dim]{data_info}[/dim]",
+            border_style=color, width=20, padding=(0, 1)
+        ))
+
+    console.print(Columns(panels, equal=True, expand=True))
+`,
+    },
+    {
+      tag: "the totals", file: "examples/37_liquidation_totals.py",
+      fn: "37_liquidation_totals.py  ·  one endpoint, six windows",
+      say: "Every venue, every window, the full long and short split, in a single request.",
+      hi: [24], doc: [1, 16], trim: 1,
+      code: `
+"""
+🌙 Moon Dev's Liquidation Totals Dashboard (Long vs Short)
+===========================================================
+Rolling liquidation totals across ALL exchanges with the
+FULL long/short split:
+- 6 windows: 5m, 15m, 1h, 2h, 3h, 4h
+- Long vs Short volume + count per window
+- Per-exchange breakdown (Binance, Bybit, OKX, Hyperliquid)
+- Squeeze detector: spots when one side is getting wrecked
+
+Endpoint: https://api.moondev.com/api/
+          all_liquidations/totals.json (updates every 20s)
+
+Built with love by Moon Dev 🚀
+Run with: python examples/37_liquidation_totals.py
+"""
+
+# Window order for display
+WINDOWS = ["5m", "15m", "1h", "2h", "3h", "4h"]
+
+def main():
+    """Main function - Moon Dev's Liquidation Totals Dashboard"""
+    api = MoonDevAPI()
+    data = api.get_all_liquidation_totals()
+    windows = data.get('windows', {})
+
+    display_window_totals(windows)
+    display_squeeze_signal(windows)
+    display_exchange_breakdown(windows, "1h")
+    display_exchange_breakdown(windows, "4h")
+    print_footer()
+`,
+    },
+    {
+      tag: "the squeeze", file: "examples/37_liquidation_totals.py",
+      fn: "display_squeeze_signal()  ·  who is getting wrecked",
+      say: "Three to one on either side, and only if a million dollars actually blew up.",
+      hi: [13, 19], trim: 1,
+      code: `
+def display_squeeze_signal(windows):
+    """🌙 Moon Dev's squeeze detector - who's getting wrecked?"""
+    signals = []
+    for tf in WINDOWS:
+        w = windows.get(tf)
+        if not w:
+            continue
+        long_vol = w.get('long_volume_usd', 0)
+        short_vol = w.get('short_volume_usd', 0)
+        total = long_vol + short_vol
+        if total < 1_000_000:  # not enough action to call it
+            continue
+        if short_vol > long_vol * 3:
+            signals.append(
+                f"[green]🚀 {tf}: SHORT SQUEEZE — "
+                f"{format_usd(short_vol)} shorts vs "
+                f"{format_usd(long_vol)} longs liquidated "
+                f"(price ripping UP)[/green]")
+        elif long_vol > short_vol * 3:
+            signals.append(
+                f"[red]💀 {tf}: LONG FLUSH — "
+                f"{format_usd(long_vol)} longs vs "
+                f"{format_usd(short_vol)} shorts liquidated "
+                f"(price dumping DOWN)[/red]")
+
+    if signals:
+        console.print(Panel(
+            "\\n".join(signals),
+            title="🚨 [bold yellow]MOON DEV'S SQUEEZE "
+                  "DETECTOR[/bold yellow] 🚨",
+            border_style="yellow",
+        ))
+`,
+    },
+  ];
+
+  const ALL = [
+    ...SLIDES,
+    { tag: "PART TWO", fn: "the code itself", build: sDiv,
+      h: "Same two ideas, <em>line by line</em>.",
+      say: "Four files out of thirty nine, walked top to bottom." },
+    ...CODE,
+    { tag: "THE REST", fn: "examples/ ·  35 more", build: sMore,
+      h: "This deck covered <em>four</em>. There are thirty nine.",
+      say: "Whales, order flow, CVD, funding, HIP-3, wallet flow, and the rest are all sitting in the repo." },
+    { tag: "RUN IT", fn: "the commands", build: sRun,
+      h: "How to <em>actually run it</em>.",
+      say: "Grab a key, clone the repo, and every one of these prints in your terminal." },
+  ];
+  const P2 = SLIDES.length, TOTAL = ALL.length;
+
+  // ---- python painter ----
+  const PY = /(#.*$)|([frbFRB]{0,2}"(?:\\.|[^"\\])*"|[frbFRB]{0,2}'(?:\\.|[^'\\])*')|\b(def|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|import|from|as|try|except|raise|continue|break|global|lambda|with|pass|class)\b|(\b\d[\d_]*\.?\d*\b)|([A-Za-z_]\w*)(?=\()/g;
+
+  function paintPy(host, line) {
+    if (!line.trim()) { host.textContent = " "; return; }
+    let i = 0, m;
+    PY.lastIndex = 0;
+    while ((m = PY.exec(line))) {
+      if (m.index > i) host.appendChild(document.createTextNode(line.slice(i, m.index)));
+      const sp = document.createElement("span");
+      sp.className = "t " + (m[1] ? "c" : m[2] ? "s" : m[3] ? "k" : m[4] ? "n" : "f");
+      sp.textContent = m[0];
+      host.appendChild(sp);
+      i = m.index + m[0].length;
+    }
+    if (i < line.length) host.appendChild(document.createTextNode(line.slice(i)));
+  }
+
+  function renderCode(pre, s) {
+    const lines = s.code.replace(/^\n+|\n+$/g, "").split("\n");
+    let max = 0;
+    lines.forEach((l, i) => {
+      max = Math.max(max, l.length);
+      const row = document.createElement("div");
+      row.className = "row" + ((s.hi || []).includes(i + 1) ? " hi" : "");
+      row.style.animationDelay = (.05 + i * .022) + "s";
+      const ln = document.createElement("span");
+      ln.className = "ln";
+      ln.textContent = String(i + 1);
+      const t = document.createElement("span");
+      const inDoc = s.mode === "doc" || (s.doc && i + 1 >= s.doc[0] && i + 1 <= s.doc[1]);
+      t.className = inDoc && s.mode !== "doc" ? "t c" : "t";
+      if (inDoc) t.textContent = l || " ";
+      else paintPy(t, l);
+      row.append(ln, t);
+      pre.appendChild(row);
+    });
+    pre.dataset.lines = lines.length;
+    pre.dataset.max = max;
+  }
+
+  function fit(sec) {
+    const pane = sec.querySelector(".pane");
+    if (!pane) return;
+    const pre = pane.querySelector(".pre");
+    const cs = getComputedStyle(pane);
+    const w = pane.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const h = pane.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (w <= 0 || h <= 0) return;
+    const n = +pre.dataset.lines, m = +pre.dataset.max;
+    const fs = Math.min(h / (n * 1.52), w / ((m + 5.4) * .6015));
+    pre.style.fontSize = Math.max(7, Math.min(fs, 26)) + "px";
+  }
+
+  // ---- build ----
+  const host = document.getElementById("slides"), nav = document.getElementById("nav");
+
+  // one shared paint-server sheet, kept out of any display:none subtree so every
+  // slide can reference it by id
+  const sheet = E("svg", { width: 0, height: 0, "aria-hidden": "true", focusable: "false" });
+  sheet.setAttribute("style", "position:absolute;width:0;height:0;overflow:hidden");
+  const sd0 = E("defs"); sd0.innerHTML = DEFS; sheet.appendChild(sd0);
+  document.querySelector(".stage").appendChild(sheet);
+
+  nav.innerHTML = '<div class="now"></div><div class="ticks"></div><span class="hint">← →  or tap the edges</span>';
+  const now = nav.querySelector(".now"), ticks = nav.querySelector(".ticks");
+  const btns = [];
+
+  ALL.forEach((s, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    const sec = document.createElement("section");
+    sec.className = "slide";
+
+    if (s.build) {
+      sec.innerHTML = `
+        <div class="head">
+          <div class="num">${n}<small>/ ${TOTAL}</small></div>
+          <div class="titles">
+            <div class="eyebrow">${s.tag} <b>moon dev · hyperliquid data layer api</b></div>
+            <h2>${s.h}</h2>
+            <p class="say">${s.say}</p>
+          </div>
+          <div class="fn"><b>${s.fn}</b></div>
+        </div>
+        <div class="viz"><svg viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${s.tag}"></svg></div>`;
+      host.appendChild(sec);
+      s.build(sec.querySelector("svg"));
+    } else {
+      sec.innerHTML = `
+        <div class="head slim">
+          <div class="num">${n}<small>/ ${TOTAL}</small></div>
+          <div class="titles">
+            <h3>${s.fn}</h3>
+            <p class="say">${s.say}</p>
+          </div>
+          <div class="stamp${s.trim ? " trim" : ""}">${s.file || FILE_NAME}${s.trim ? " · trimmed" : ""}</div>
+        </div>
+        <div class="pane"><pre class="pre${s.mode === "doc" ? " doc" : ""}"></pre></div>`;
+      host.appendChild(sec);
+      renderCode(sec.querySelector(".pre"), s);
+    }
+
+    if (i === P2) ticks.appendChild(Object.assign(document.createElement("span"), { className: "split" }));
+    const b = document.createElement("button");
+    b.type = "button";
+    if (i >= P2) b.className = "part2";
+    b.setAttribute("aria-label", n + " " + s.tag);
+    b.title = n + "  " + s.tag;
+    b.addEventListener("click", () => go(i));
+    ticks.appendChild(b);
+    btns.push(b);
+  });
+
+  const secs = [...host.children];
+  let cur = -1;
+
+  function go(i) {
+    i = (i + TOTAL) % TOTAL;
+    if (cur >= 0 && i !== cur) { secs[cur].classList.remove("on"); btns[cur].setAttribute("aria-current", "false"); }
+    cur = i;
+    secs[i].classList.add("on");
+    btns[i].setAttribute("aria-current", "true");
+    now.innerHTML = "<b>" + String(i + 1).padStart(2, "0") + "</b>" + ALL[i].tag;
+    fit(secs[i]);
+    restart(secs[i]);
+  }
+  function restart(el) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.getAnimations({ subtree: true }).forEach(a => { try { a.cancel(); a.play(); } catch (e) {} });
+  }
+
+  addEventListener("keydown", e => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { go(cur + 1); e.preventDefault(); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { go(cur - 1); e.preventDefault(); }
+    if (e.key === "Home") go(0);
+    if (e.key === "End") go(TOTAL - 1);
+    if (/^[1-9]$/.test(e.key)) go(+e.key - 1);
+    if (e.key === "0") go(9);
+  });
+  document.querySelector(".stage").addEventListener("click", e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    go(cur + (e.clientX - r.left > r.width * .5 ? 1 : -1));
+  });
+  addEventListener("resize", () => { if (cur >= 0) fit(secs[cur]); });
+  go(0);
+
+  // ---- ambient: grid + slow drift ----
+  const cv = document.getElementById("ambient"), ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W, H, P = [];
+  const sd = rng(21);
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * d; cv.height = H * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    P = Array.from({ length: 70 }, () => ({ x: sd() * W, y: sd() * H, vx: (sd() - .5) * .1, vy: (sd() - .5) * .1, r: .4 + sd() * 1.2, a: .05 + sd() * .18 }));
+  }
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = "#080F0C"; ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 44) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 44) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+    for (const p of P) {
+      if (!reduce) { p.x += p.vx; p.y += p.vy; }
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.284);
+      ctx.fillStyle = `rgba(0,255,106,${p.a})`; ctx.fill();
+    }
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  size(); frame();
+  addEventListener("resize", () => { size(); if (reduce) frame(); });
+})();
+</script>

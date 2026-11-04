@@ -1,0 +1,650 @@
+<title>Moon Dev Deck Template</title>
+
+<style>
+  :root {
+    --bg:    #000000;
+    --pane:  #050807;
+    --grid:  #0B1310;
+    --edge:  #142019;
+    --dim:   #1C3A2A;
+    --neu:   #66786D;
+    --neu2:  #3A4A42;
+    --ink:   #CFE8D8;
+    --grn:   #00FF6A;
+    --red:   #FF2E3E;
+    --amb:   #FFB000;
+    --cyn:   #2BE7FF;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --cond: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
+  }
+
+  /* single-theme on purpose: this is a terminal, it only exists lit */
+  html { background: var(--bg); color-scheme: dark; }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2vmin;
+    gap: 1.4vmin;
+  }
+
+  .deck { width: 100%; max-width: 1560px; container-type: inline-size; }
+
+  .stage {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    min-height: 400px;
+    border: 1px solid var(--edge);
+    background:
+      radial-gradient(110% 80% at 12% 0%, #0A1410 0%, transparent 58%),
+      radial-gradient(90% 70% at 92% 100%, #0F0A0C 0%, transparent 60%),
+      var(--pane);
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #000 inset, 0 2cqw 7cqw -3cqw #000;
+  }
+
+  #ambient { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; pointer-events: none; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    grid-template-rows: auto 1fr;
+    z-index: 1;
+  }
+  .slide.on { display: grid; }
+
+  /* ---------- head ---------- */
+  .head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 1.8cqw;
+    padding: 1.6cqw 2.2cqw 1.2cqw;
+    border-bottom: 1px solid var(--edge);
+  }
+  .num {
+    font-family: var(--mono);
+    font-size: 3.1cqw;
+    line-height: .85;
+    font-weight: 600;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .num small { display: block; font-size: .95cqw; color: var(--neu2); letter-spacing: .18em; margin-top: .35cqw; }
+  .titles { min-width: 0; }
+  .eyebrow {
+    font-family: var(--cond);
+    font-size: 1cqw;
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    color: var(--grn);
+    display: flex; gap: .9cqw; align-items: baseline;
+  }
+  .eyebrow b { color: var(--neu2); font-weight: 400; }
+  .titles h2 {
+    margin: .35cqw 0 .45cqw;
+    font-size: 2.15cqw;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .titles h2 em { font-style: normal; color: var(--grn); }
+  .say { margin: 0; font-size: 1.16cqw; line-height: 1.5; color: var(--neu); max-width: 74ch; }
+  .fn {
+    font-size: 1cqw;
+    color: var(--neu2);
+    text-align: right;
+    white-space: nowrap;
+    padding-top: .5cqw;
+  }
+  .fn b { color: var(--amb); font-weight: 400; }
+
+  .viz { position: relative; min-height: 0; }
+  .viz svg { display: block; width: 100%; height: 100%; }
+
+  /* ---------- code slides ---------- */
+  .head.slim {
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 1.15cqw 2.2cqw .95cqw;
+  }
+  .head.slim .num { font-size: 1.75cqw; color: var(--dim); }
+  .head.slim .num small { display: inline; font-size: .85cqw; margin-left: .35cqw; letter-spacing: .12em; }
+  .head.slim h3 {
+    margin: 0 0 .2cqw;
+    font-size: 1.6cqw;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--grn);
+  }
+  .head.slim h3 span { color: var(--neu2); font-weight: 400; }
+  .head.slim .say { font-size: 1.02cqw; color: var(--neu); }
+  .stamp {
+    font-family: var(--cond);
+    font-size: .88cqw;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--neu2);
+    border: 1px solid var(--edge);
+    padding: .35cqw .6cqw;
+    white-space: nowrap;
+  }
+  .stamp.trim { color: var(--amb); border-color: #3A2A00; }
+
+  .pane { position: relative; min-height: 0; padding: .9cqw 1.6cqw 1.1cqw; overflow: hidden; }
+  .pre { margin: 0; font-family: var(--mono); line-height: 1.52; font-size: 16px; }
+  .row {
+    display: grid;
+    grid-template-columns: 3ch 1fr;
+    gap: 1.6ch;
+    padding-left: .9ch;
+    border-left: 2px solid transparent;
+    white-space: pre;
+    opacity: 0;
+    animation: rise .34s cubic-bezier(.2,.9,.3,1) forwards;
+  }
+  .row .ln { color: #1B2721; text-align: right; user-select: none; }
+  .row.hi { background: rgba(0,255,106,.07); border-left-color: var(--grn); }
+  .row.hi .ln { color: var(--grn); }
+  .t   { color: var(--ink); }
+  .t.k { color: var(--red); }
+  .t.s { color: var(--amb); }
+  .t.c { color: #46614F; font-style: italic; }
+  .t.n { color: var(--cyn); }
+  .t.f { color: var(--grn); }
+  .t.d { color: #3E5749; }
+  .pre.doc .t { color: #7FA48E; }
+  .pre.doc .row:first-child .t,
+  .pre.doc .row:nth-child(2) .t { color: var(--grn); }
+
+  /* ---------- nav ---------- */
+  .nav {
+    width: 100%; max-width: 1560px;
+    display: flex; align-items: center; gap: 1.4vmin;
+    font-family: var(--cond);
+    font-size: clamp(9px, .8vw, 12px);
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  .now { color: var(--grn); white-space: nowrap; min-width: 15ch; }
+  .now b { color: var(--neu2); font-weight: 400; margin-right: .7ch; }
+  .ticks { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; }
+  .ticks button {
+    flex: 1 1 0; min-width: 0;
+    appearance: none; background: transparent; border: 0;
+    border-top: 3px solid var(--edge);
+    height: 14px; padding: 0; cursor: pointer;
+    transition: border-color .18s;
+  }
+  .ticks button:hover { border-color: var(--dim); }
+  .ticks button[aria-current="true"] { border-color: var(--grn); }
+  .ticks button.part2 { border-top-color: #241A00; }
+  .ticks button.part2:hover { border-top-color: #4A3600; }
+  .ticks button.part2[aria-current="true"] { border-top-color: var(--amb); }
+  .ticks .split { flex: 0 0 14px; }
+  .ticks button:focus-visible { outline: 1px solid var(--grn); outline-offset: 2px; }
+  .hint { color: var(--neu2); font-family: var(--mono); letter-spacing: .04em; text-transform: none; white-space: nowrap; }
+
+  /* ---------- shared motion ---------- */
+  .draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 1.15s cubic-bezier(.25,.8,.3,1) forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .pop { opacity: 0; animation: pop .45s cubic-bezier(.2,1.5,.4,1) forwards; }
+  @keyframes pop { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+  .fade { opacity: 0; animation: fade .7s ease-out forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  .rise { opacity: 0; animation: rise .6s cubic-bezier(.2,.9,.3,1) forwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .wipe { clip-path: inset(0 100% 0 0); animation: wipe 1.3s cubic-bezier(.35,.6,.25,1) forwards; }
+  @keyframes wipe { to { clip-path: inset(0 0 0 0); } }
+  .blink { animation: blink 1.5s steps(1) infinite; }
+  @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: .18; } }
+  .spin { transform-box: fill-box; transform-origin: center; animation: spin 16s linear infinite; }
+  .spin.rev { animation-duration: 10s; animation-direction: reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .breathe { transform-box: fill-box; transform-origin: center; animation: breathe 2.8s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: .16; transform: scale(1); } 50% { opacity: .46; transform: scale(1.45); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .draw, .pop, .fade, .rise, .wipe, .blink, .spin, .breathe { animation: none !important; }
+    .draw { stroke-dashoffset: 0; }
+    .pop, .fade, .rise { opacity: 1; }
+    .wipe { clip-path: none; }
+    .breathe { opacity: .26; }
+  }
+</style>
+
+<div class="deck">
+  <div class="stage">
+    <canvas id="ambient"></canvas>
+    <div id="slides"></div>
+  </div>
+</div>
+<nav class="nav" id="nav" aria-label="slides"></nav>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const E = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const add = (p, ...c) => { c.forEach(x => x && p.appendChild(x)); return p; };
+  const rng = s => () => (s = s * 16807 % 2147483647) / 2147483647;
+
+  const T = (x, y, s, o = {}) => {
+    const t = E("text", {
+      x, y,
+      fill: o.fill || "#3A4A42",
+      "font-size": o.size || 10,
+      "font-family": o.face === "c" ? '"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif' : 'ui-monospace,"SF Mono",Menlo,monospace',
+      "letter-spacing": o.ls ?? 0,
+      "text-anchor": o.at || "middle",
+      "font-weight": o.w || 400,
+      opacity: o.op ?? 1,
+    });
+    if (o.cls) t.setAttribute("class", o.cls);
+    if (o.delay != null) t.style.animationDelay = o.delay + "s";
+    t.textContent = s;
+    return t;
+  };
+  const lab = (x, y, s, o = {}) => T(x, y, s, { face: "c", ls: 2.4, size: 9, ...o });
+  const delay = (n, d) => { n.style.animationDelay = d + "s"; return n; };
+  const dash = (o) => E("line", { stroke: "#1C3A2A", "stroke-width": 1, "stroke-dasharray": "3 4", ...o });
+
+  const C = { grn: "#00FF6A", red: "#FF2E3E", amb: "#FFB000", cyn: "#2BE7FF", ink: "#CFE8D8", neu: "#66786D", neu2: "#3A4A42", dim: "#1C3A2A", edge: "#142019" };
+
+  const DEFS = `
+    <linearGradient id="gGrn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00FF6A" stop-opacity=".34"/><stop offset="100%" stop-color="#00FF6A" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF2E3E" stop-opacity=".38"/><stop offset="100%" stop-color="#FF2E3E" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gAmb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFB000" stop-opacity=".28"/><stop offset="100%" stop-color="#FFB000" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="coreR"><stop offset="0%" stop-color="#FFD9DE"/><stop offset="42%" stop-color="#FF2E3E"/><stop offset="100%" stop-color="#5E0810"/></radialGradient>
+    <radialGradient id="haloR"><stop offset="0%" stop-color="#FF2E3E" stop-opacity=".6"/><stop offset="72%" stop-color="#FF2E3E" stop-opacity=".06"/><stop offset="100%" stop-color="#FF2E3E" stop-opacity="0"/></radialGradient>
+    <radialGradient id="atomG"><stop offset="0%" stop-color="#B6FFD6"/><stop offset="55%" stop-color="#00FF6A"/><stop offset="100%" stop-color="#046B31"/></radialGradient>
+    <filter id="glow" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowS" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+
+  // ======================================================================= //
+  // PATTERNS — starter builders. Copy, mangle, or ignore them.
+  // A bespoke drawing beats a reused one every time. These exist so you are
+  // never staring at a blank canvas, not so every deck looks the same.
+  // ======================================================================= //
+
+  // Two vessels and a sum. Good for "this reads zero but the money is over here".
+  function pTanks(g, items, footer) {
+    items.forEach((it, i) => {
+      const x = 70 + i * 315, y = 96, w = 200, h = 200;
+      const gg = E("g", { class: "rise" }); gg.style.animationDelay = (.1 + i * .25) + "s";
+      add(gg,
+        E("rect", { x, y, width: w, height: h, fill: "#050A08", stroke: it.c, "stroke-opacity": .45 }),
+        E("rect", { x, y: y + h - h * it.pct, width: w, height: h * it.pct, fill: it.c, "fill-opacity": .13 }),
+        it.pct > 0 ? E("line", { x1: x, y1: y + h - h * it.pct, x2: x + w, y2: y + h - h * it.pct, stroke: it.c, "stroke-width": 1.6 }) : null,
+        lab(x + 12, y - 14, it.title, { at: "start", fill: it.c, ls: 3, size: 10 }),
+        T(x + w / 2, y + h / 2, it.big, { size: 24, fill: it.c, w: 600 }),
+        T(x + w / 2, y + h / 2 + 22, it.sub, { size: 9.5, fill: C.neu2 }),
+      );
+      add(g, gg);
+      if (i < items.length - 1) add(g, delay(T(x + w + 57, y + h / 2, i === items.length - 2 ? "=" : "+", { size: 30, fill: C.neu2, cls: "fade" }), .9));
+    });
+    if (footer) add(g, delay(T(70, 392, footer, { at: "start", size: 10.5, fill: C.neu, cls: "fade" }), 1.6));
+  }
+
+  // Boxes and arrows. Good for state machines and pipelines.
+  function pFlow(g, nodes, arrows) {
+    nodes.forEach((n, i) => {
+      const gg = E("g", { class: "rise" }); gg.style.animationDelay = (.1 + i * .18) + "s";
+      add(gg,
+        n.glow ? E("rect", { x: n.x - 4, y: n.y - 4, width: n.w + 8, height: n.h + 8, fill: n.c, opacity: .05 }) : null,
+        E("rect", { x: n.x, y: n.y, width: n.w, height: n.h, fill: "#050A08", stroke: n.c, "stroke-opacity": .6 }),
+        T(n.x + 14, n.y + 27, n.t, { at: "start", size: 15, fill: n.c, w: 600 }),
+        T(n.x + 14, n.y + 46, n.sub, { at: "start", size: 9.5, fill: C.neu2 }),
+      );
+      add(g, gg);
+    });
+    arrows.forEach((a, i) => {
+      add(g, delay(E("path", { d: a.d, fill: "none", stroke: a.c, "stroke-width": 1.2, "stroke-opacity": .75, class: "fade" }), .8 + i * .14));
+      if (a.t) add(g, delay(lab(a.tx, a.ty, a.t, { fill: a.c, ls: 2, size: 8.5, cls: "fade" }), .85 + i * .14));
+    });
+  }
+
+  // Three columns with a verdict. Good for diffs, before/after, keep/kill.
+  function pColumns(g, heads, rows) {
+    heads.forEach((h, i) => add(g,
+      delay(lab(70 + i * 330, 60, h.t, { at: "start", fill: h.c, ls: 3.2, size: 10 }), .1),
+      E("line", { x1: 70 + i * 330, y1: 70, x2: 70 + i * 330 + 220, y2: 70, stroke: C.edge })));
+
+    rows.forEach((r, i) => {
+      const y = 108 + i * 74;
+      [r.a, r.b].forEach((cell, k) => {
+        const x = 70 + k * 330;
+        if (cell) add(g,
+          delay(E("rect", { x, y, width: 220, height: 40, fill: "#050A08", stroke: r.c, "stroke-opacity": .4, class: "rise" }), .3 + i * .18),
+          delay(T(x + 12, y + 25, cell, { at: "start", size: 10.5, fill: C.ink, cls: "fade" }), .4 + i * .18));
+        else add(g, delay(T(x + 12, y + 25, "—", { at: "start", size: 14, fill: "#1A241F", cls: "fade" }), .4 + i * .18));
+      });
+      add(g,
+        delay(E("rect", { x: 730, y, width: 190, height: 40, fill: "none", stroke: r.c, "stroke-opacity": .55, class: "rise" }), .55 + i * .18),
+        delay(T(742, y + 26, r.act, { at: "start", size: 15, fill: r.c, w: 600, cls: "fade" }), .65 + i * .18),
+        delay(T(742, y + 56, r.note, { at: "start", size: 9, fill: C.neu2, cls: "fade" }), .7 + i * .18),
+      );
+    });
+  }
+
+  // A spinning ring with labelled stops. Good for "this never stops running".
+  function pRing(g, cx, cy, R, stops, big, small) {
+    add(g,
+      E("circle", { cx, cy, r: R + 26, fill: C.grn, opacity: .03 }),
+      E("circle", { cx, cy, r: R, fill: "none", stroke: "#0C6B3B", "stroke-width": 1.4, "stroke-dasharray": "4 7" }),
+    );
+    const ring = E("circle", { cx, cy, r: R, fill: "none", stroke: C.grn, "stroke-width": 2, "stroke-dasharray": (R * 1) + " " + (R * 6), filter: "url(#glowS)", class: "spin" });
+    ring.style.transformOrigin = cx + "px " + cy + "px"; ring.style.transformBox = "view-box";
+    add(g, ring);
+    stops.forEach((t, i) => {
+      const a = (i / stops.length) * Math.PI * 2 - Math.PI / 2;
+      add(g, delay(E("circle", { cx: cx + Math.cos(a) * R, cy: cy + Math.sin(a) * R, r: 4.5, fill: C.grn, class: "pop" }), .2 + i * .12));
+      add(g, delay(T(cx + Math.cos(a) * (R + 28), cy + Math.sin(a) * (R + 28) + 3.5, t, { size: 9.5, fill: C.neu, cls: "fade" }), .3 + i * .12));
+    });
+    add(g,
+      delay(T(cx, cy - 6, big, { size: 32, fill: C.grn, w: 600, cls: "fade" }), .6),
+      delay(lab(cx, cy + 16, small, { fill: "#2F8C55", ls: 4.4 }), .7),
+    );
+  }
+
+  // ======================================================================= //
+  // PART TWO DIVIDER — lists the code slides. Leave this alone, it builds
+  // itself from the CODE array.
+  // ======================================================================= //
+  function sDiv(g) {
+    add(g,
+      delay(T(70, 116, "PART TWO", { at: "start", size: 54, fill: C.amb, w: 600, cls: "rise" }), .1),
+      delay(T(70, 178, "THE CODE", { at: "start", size: 54, fill: C.grn, w: 600, cls: "rise" }), .2),
+      delay(E("line", { x1: 70, y1: 208, x2: 396, y2: 208, stroke: C.edge, class: "fade" }), .35),
+      delay(T(70, 238, "one file  ·  one loop  ·  no hidden magic", { at: "start", size: 13, fill: C.neu, cls: "fade" }), .4),
+      delay(T(70, 268, "every function on this list gets its own slide,", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .5),
+      delay(T(70, 286, "in the exact order the file reads top to bottom", { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .55),
+    );
+    const x = 486;
+    add(g, delay(E("line", { x1: x, y1: 30, x2: x, y2: 30 + CODE.length * 25, stroke: C.edge, class: "fade" }), .45));
+    CODE.forEach((c, i) => {
+      const y = 46 + i * 25, p = c.fn.split("  ·  ");
+      add(g,
+        delay(E("line", { x1: x, y1: y - 4, x2: x + 11, y2: y - 4, stroke: C.grn, "stroke-opacity": .5, class: "fade" }), .5 + i * .045),
+        delay(T(x + 20, y, String(i + SLIDES.length + 2).padStart(2, "0"), { at: "start", size: 11, fill: C.neu2, cls: "fade" }), .5 + i * .045),
+        delay(T(x + 48, y, p[0], { at: "start", size: 12.5, fill: C.ink, cls: "fade" }), .55 + i * .045),
+        p[1] ? delay(T(x + 250, y, p[1], { at: "start", size: 10.5, fill: C.neu2, cls: "fade" }), .6 + i * .045) : null,
+      );
+    });
+  }
+
+  // ======================================================================= //
+  // CLOSER — a terminal window with the commands to run the thing.
+  // ======================================================================= //
+  const RUN_CMDS = [
+    ["python your_bot.py --dry", "prints everything, sends nothing", C.amb],
+    ["python your_bot.py", "LIVE", C.grn],
+  ];
+
+  function sRun(g) {
+    const x = 130, y = 54, w = 740, h = 300;
+    add(g,
+      delay(E("rect", { x, y, width: w, height: h, fill: "#020403", stroke: C.dim, class: "rise" }), .1),
+      delay(E("rect", { x, y, width: w, height: 30, fill: "#050A08", stroke: C.dim, class: "rise" }), .1),
+      delay(T(x + 108, y + 20, FILE_NAME, { at: "start", size: 11.5, fill: C.neu, cls: "fade" }), .3),
+    );
+    [C.red, C.amb, C.grn].forEach((c, i) => add(g, delay(E("circle", { cx: x + 22 + i * 20, cy: y + 15, r: 5, fill: c, opacity: .8, class: "pop" }), .2 + i * .07)));
+
+    RUN_CMDS.forEach(([cmd, note, col], i) => {
+      const cy = y + 82 + i * 74;
+      add(g,
+        delay(T(x + 26, cy, "$", { at: "start", size: 17, fill: col, w: 600, cls: "fade" }), .5 + i * .22),
+        delay(T(x + 48, cy, cmd, { at: "start", size: 16, fill: C.ink, cls: "fade" }), .55 + i * .22),
+        delay(T(x + 48, cy + 22, "# " + note, { at: "start", size: 11.5, fill: "#46614F", cls: "fade" }), .6 + i * .22),
+      );
+    });
+
+    add(g,
+      delay(E("rect", { x: x + 20, y: y + 240, width: w - 40, height: 1, fill: C.edge, class: "fade" }), 1.2),
+      delay(T(x + 26, y + 274, "Built with love by Moon Dev 🚀", { at: "start", size: 15, fill: C.grn, cls: "fade" }), 1.3),
+    );
+  }
+
+  // ======================================================================= //
+  // ▼▼▼  FILL THIS IN  ▼▼▼
+  // ======================================================================= //
+  const FILE_NAME = "your_bot.py";
+
+  // PART ONE — the idea. Ten slides. One sentence each. Bespoke drawing each.
+  const SLIDES = [
+    {
+      tag: "COLD OPEN", fn: "the premise",
+      h: "The one <em>surprising thing</em> this code does.",
+      say: "One sentence. Short words, real idea, no wind up.",
+      build: (g) => {
+        // draw the most characteristic thing in this subject's world
+        add(g, T(500, 220, "replace me", { size: 24, fill: C.neu2 }));
+      },
+    },
+    // ... nine more, in the order the bot actually runs
+  ];
+
+  // PART TWO — the code. As many slides as the file needs.
+  // 22-32 lines each. Keep lines under ~76 characters.
+  const CODE = [
+    {
+      tag: "nav label", fn: "function_name()  ·  what this half does",
+      say: "One sentence on what to look at here.",
+      hi: [3],          // 1-based lines to highlight (the money lines)
+      doc: [2, 5],      // optional: 1-based range rendered as prose, not code
+      trim: 0,          // 1 if you cut lines out of the real function
+      code: `
+def function_name(x):
+    """A docstring is worth a slide of its own."""
+    return x
+`,
+    },
+  ];
+
+  const ALL = [
+    ...SLIDES,
+    { tag: "PART TWO", fn: "the file itself", build: sDiv,
+      h: "Same thing, <em>line by line</em>.",
+      say: "In the exact order the file reads from top to bottom." },
+    ...CODE,
+    { tag: "RUN IT", fn: "the commands", build: sRun,
+      h: "How to <em>actually run it</em>.",
+      say: "Safe mode first, live last, every single time." },
+  ];
+  const P2 = SLIDES.length, TOTAL = ALL.length;
+
+  // ---- python painter ----
+  const PY = /(#.*$)|([frbFRB]{0,2}"(?:\\.|[^"\\])*"|[frbFRB]{0,2}'(?:\\.|[^'\\])*')|\b(def|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|import|from|as|try|except|raise|continue|break|global|lambda|with|pass|class)\b|(\b\d[\d_]*\.?\d*\b)|([A-Za-z_]\w*)(?=\()/g;
+
+  function paintPy(host, line) {
+    if (!line.trim()) { host.textContent = " "; return; }
+    let i = 0, m;
+    PY.lastIndex = 0;
+    while ((m = PY.exec(line))) {
+      if (m.index > i) host.appendChild(document.createTextNode(line.slice(i, m.index)));
+      const sp = document.createElement("span");
+      sp.className = "t " + (m[1] ? "c" : m[2] ? "s" : m[3] ? "k" : m[4] ? "n" : "f");
+      sp.textContent = m[0];
+      host.appendChild(sp);
+      i = m.index + m[0].length;
+    }
+    if (i < line.length) host.appendChild(document.createTextNode(line.slice(i)));
+  }
+
+  function renderCode(pre, s) {
+    const lines = s.code.replace(/^\n+|\n+$/g, "").split("\n");
+    let max = 0;
+    lines.forEach((l, i) => {
+      max = Math.max(max, l.length);
+      const row = document.createElement("div");
+      row.className = "row" + ((s.hi || []).includes(i + 1) ? " hi" : "");
+      row.style.animationDelay = (.05 + i * .022) + "s";
+      const ln = document.createElement("span");
+      ln.className = "ln";
+      ln.textContent = String(i + 1);
+      const t = document.createElement("span");
+      const inDoc = s.mode === "doc" || (s.doc && i + 1 >= s.doc[0] && i + 1 <= s.doc[1]);
+      t.className = inDoc && s.mode !== "doc" ? "t c" : "t";
+      if (inDoc) t.textContent = l || " ";
+      else paintPy(t, l);
+      row.append(ln, t);
+      pre.appendChild(row);
+    });
+    pre.dataset.lines = lines.length;
+    pre.dataset.max = max;
+  }
+
+  function fit(sec) {
+    const pane = sec.querySelector(".pane");
+    if (!pane) return;
+    const pre = pane.querySelector(".pre");
+    const cs = getComputedStyle(pane);
+    const w = pane.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const h = pane.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (w <= 0 || h <= 0) return;
+    const n = +pre.dataset.lines, m = +pre.dataset.max;
+    const fs = Math.min(h / (n * 1.52), w / ((m + 5.4) * .6015));
+    pre.style.fontSize = Math.max(7, Math.min(fs, 26)) + "px";
+  }
+
+  // ---- build ----
+  const host = document.getElementById("slides"), nav = document.getElementById("nav");
+
+  // one shared paint-server sheet, kept out of any display:none subtree so every
+  // slide can reference it by id
+  const sheet = E("svg", { width: 0, height: 0, "aria-hidden": "true", focusable: "false" });
+  sheet.setAttribute("style", "position:absolute;width:0;height:0;overflow:hidden");
+  const sd0 = E("defs"); sd0.innerHTML = DEFS; sheet.appendChild(sd0);
+  document.querySelector(".stage").appendChild(sheet);
+
+  nav.innerHTML = '<div class="now"></div><div class="ticks"></div><span class="hint">← →  or tap the edges</span>';
+  const now = nav.querySelector(".now"), ticks = nav.querySelector(".ticks");
+  const btns = [];
+
+  ALL.forEach((s, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    const sec = document.createElement("section");
+    sec.className = "slide";
+
+    if (s.build) {
+      sec.innerHTML = `
+        <div class="head">
+          <div class="num">${n}<small>/ ${TOTAL}</small></div>
+          <div class="titles">
+            <div class="eyebrow">${s.tag} <b>moon dev · cashcat liq hunter</b></div>
+            <h2>${s.h}</h2>
+            <p class="say">${s.say}</p>
+          </div>
+          <div class="fn"><b>${s.fn}</b></div>
+        </div>
+        <div class="viz"><svg viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${s.tag}"></svg></div>`;
+      host.appendChild(sec);
+      s.build(sec.querySelector("svg"));
+    } else {
+      sec.innerHTML = `
+        <div class="head slim">
+          <div class="num">${n}<small>/ ${TOTAL}</small></div>
+          <div class="titles">
+            <h3>${s.fn}</h3>
+            <p class="say">${s.say}</p>
+          </div>
+          <div class="stamp${s.trim ? " trim" : ""}">bot_cashcat_liqhunt.py${s.trim ? " · trimmed" : ""}</div>
+        </div>
+        <div class="pane"><pre class="pre${s.mode === "doc" ? " doc" : ""}"></pre></div>`;
+      host.appendChild(sec);
+      renderCode(sec.querySelector(".pre"), s);
+    }
+
+    if (i === P2) ticks.appendChild(Object.assign(document.createElement("span"), { className: "split" }));
+    const b = document.createElement("button");
+    b.type = "button";
+    if (i >= P2) b.className = "part2";
+    b.setAttribute("aria-label", n + " " + s.tag);
+    b.title = n + "  " + s.tag;
+    b.addEventListener("click", () => go(i));
+    ticks.appendChild(b);
+    btns.push(b);
+  });
+
+  const secs = [...host.children];
+  let cur = -1;
+
+  function go(i) {
+    i = (i + TOTAL) % TOTAL;
+    if (cur >= 0 && i !== cur) { secs[cur].classList.remove("on"); btns[cur].setAttribute("aria-current", "false"); }
+    cur = i;
+    secs[i].classList.add("on");
+    btns[i].setAttribute("aria-current", "true");
+    now.innerHTML = "<b>" + String(i + 1).padStart(2, "0") + "</b>" + ALL[i].tag;
+    fit(secs[i]);
+    restart(secs[i]);
+  }
+  function restart(el) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.getAnimations({ subtree: true }).forEach(a => { try { a.cancel(); a.play(); } catch (e) {} });
+  }
+
+  addEventListener("keydown", e => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { go(cur + 1); e.preventDefault(); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { go(cur - 1); e.preventDefault(); }
+    if (e.key === "Home") go(0);
+    if (e.key === "End") go(TOTAL - 1);
+    if (/^[1-9]$/.test(e.key)) go(+e.key - 1);
+    if (e.key === "0") go(9);
+  });
+  document.querySelector(".stage").addEventListener("click", e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    go(cur + (e.clientX - r.left > r.width * .5 ? 1 : -1));
+  });
+  addEventListener("resize", () => { if (cur >= 0) fit(secs[cur]); });
+  go(0);
+
+  // ---- ambient: grid + slow drift ----
+  const cv = document.getElementById("ambient"), ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W, H, P = [];
+  const sd = rng(21);
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * d; cv.height = H * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    P = Array.from({ length: 70 }, () => ({ x: sd() * W, y: sd() * H, vx: (sd() - .5) * .1, vy: (sd() - .5) * .1, r: .4 + sd() * 1.2, a: .05 + sd() * .18 }));
+  }
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = "#080F0C"; ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 44) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 44) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+    for (const p of P) {
+      if (!reduce) { p.x += p.vx; p.y += p.vy; }
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.284);
+      ctx.fillStyle = `rgba(0,255,106,${p.a})`; ctx.fill();
+    }
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  size(); frame();
+  addEventListener("resize", () => { size(); if (reduce) frame(); });
+})();
+</script>

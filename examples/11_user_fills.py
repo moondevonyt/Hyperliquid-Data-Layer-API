@@ -505,7 +505,7 @@ def main():
             "[bold red]ERROR: No API key found![/bold red]\n"
             "Please set MOONDEV_API_KEY in your .env file\n"
             "[dim]MOONDEV_API_KEY=your_key_here[/dim]\n\n"
-            "Get your API key at: [link=https://moondev.com]https://moondev.com[/link]",
+            "Apply for an API key at: [link=https://moondev.com/apply]https://moondev.com/apply[/link]",
             border_style="red",
             title="Authentication Required",
             padding=(0, 1)

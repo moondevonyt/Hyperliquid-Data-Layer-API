@@ -109,6 +109,11 @@ AVAILABLE HYPERLIQUID API ENDPOINTS (Moon Dev's Data Layer):
 • get_user_positions(address) - Positions for ANY wallet address
 • get_user_fills(address, limit, minutes, since_ms) - Trade history for ANY wallet (up to ALL fills!)
   Pass minutes or since_ms for the fast lane: ~50ms for any wallet. No window can take ~30s.
+  Always newest-first. Capped pages keep the NEWEST fills. Check truncated.
+• get_user_flow(address, minutes, since_ms, coin) - Net buy/sell flow over a window
+  Answers "did this wallet net-buy or net-sell since T?" with NO result cap, so it is
+  never truncated. Use this for window aggregates, NOT the capped fills page_summary.
+  A window is required. Omit coin for a per-coin breakdown.
 
 == WHALE TRACKING ==
 • get_whales() - Recent whale trades ($25k+, buys & sells)

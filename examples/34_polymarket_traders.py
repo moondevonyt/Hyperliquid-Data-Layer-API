@@ -80,7 +80,7 @@ def main():
     api = MoonDevAPI()
     if not api.api_key:
         console.print("[bold red]No API key found! Set MOONDEV_API_KEY in .env[/]")
-        console.print("[dim]Get your key at https://moondev.com[/]")
+        console.print("[dim]Apply for an API key at https://moondev.com/apply[/]")
         return
 
     console.print("[bold bright_cyan]  🌙 Moon Dev[/] | Fetching Polymarket profitable traders...\n")

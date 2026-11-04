@@ -143,7 +143,7 @@ def main():
     api = MoonDevAPI()
     if not api.api_key:
         console.print(Panel(
-            "[bold red]ERROR:[/bold red] No API key found!\nSet MOONDEV_API_KEY in .env | Get key at: [cyan]moondev.com[/cyan]",
+            "[bold red]ERROR:[/bold red] No API key found!\nSet MOONDEV_API_KEY in .env | Apply for a key at: [cyan]moondev.com/apply[/cyan]",
             title="[red]Auth Error[/red]",
             border_style="red",
             padding=(0, 1)

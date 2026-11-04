@@ -157,6 +157,14 @@ def get_all_tests(api):
          lambda: api.get_user_fills(TEST_WALLET, limit=10),
          lambda r: r is not None),
 
+        ("User Fills (windowed)",
+         lambda: api.get_user_fills(TEST_WALLET, limit=10, minutes=60),
+         lambda r: isinstance(r, dict) and r.get('order') == 'newest_first' and r.get('since_ms') is not None),
+
+        ("User Flow",
+         lambda: api.get_user_flow(TEST_WALLET, minutes=60),
+         lambda r: isinstance(r, dict) and r.get('truncated') is False and 'net_usd' in r),
+
         # --- MARKET DATA ---
         ("All Prices",
          lambda: api.get_prices(),

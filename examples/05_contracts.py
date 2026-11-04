@@ -264,7 +264,7 @@ def main():
         console.print(Panel(
             "[bold red]❌ No API key found![/bold red]\n"
             "[dim]Set MOONDEV_API_KEY in your .env file[/dim]\n"
-            "[cyan]Visit https://moondev.com to get your API key[/cyan]",
+            "[cyan]Visit https://moondev.com/apply to apply for an API key[/cyan]",
             border_style="red",
             title="🔐 Authentication Error",
             padding=(0, 1)

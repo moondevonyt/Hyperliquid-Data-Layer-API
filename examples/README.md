@@ -4,6 +4,8 @@
 
 ## Changelog
 
+**2026-08-13** — New `GET /api/user/{address}/flow`: cap-proof net buy/sell flow for a wallet over a time window (per-coin or breakdown). `GET /api/user/{address}/fills` responses now include `order` (guaranteed `newest_first`, newest-kept on cap), exact `truncated`, `newest_ms`/`oldest_ms`, and `page_summary` (replaces `summary`, which remains as a deprecated alias).
+
 **2026-08-13** — Fills endpoints now accept time windows: `minutes`/`since_ms` on `/api/user/{address}/fills`, `startTime`/`minutes` on `/api/fills/{address}`. Windowed queries are ~50ms for any wallet. New 503 code `fills_scanner_busy` (retry/fall back); an empty fills array now always means genuinely no fills. Retired (410): `/api/hlp/funding`, `/api/hlp/funding/hip3`, `/api/hlp/trades`, `/api/hlp/trades/stats`, `/api/launch/*`, `/ws/launch/*`, `/api/sol-launch/*`.
 
 ## What's Inside
@@ -42,6 +44,7 @@ Each file in this folder is a standalone Python script that demonstrates one sec
 | `36_hl_direct_proxy.py` | HL Direct-Proxy | **NEW!** Drop-in `info.user_state` + `info.open_orders` — no 429s, local node w/ public fallback |
 | `37_liquidation_totals.py` | Liquidation Totals | **NEW!** Long/short split across 6 rolling windows (5m→4h) + squeeze detector, per-exchange breakdown |
 | `38_fills_polling.py` | Fills Polling | **NEW!** Time-windowed fills (`minutes`/`since_ms`/`startTime`) — ~50ms for any wallet, with dedupe + 503 handling |
+| `39_wallet_flow.py` | Wallet Net Flow | **NEW!** Net-bought or net-sold over a window, uncapped — plus a side-by-side showing why a capped fills page lies |
 
 ---
 
@@ -362,6 +365,8 @@ Bar behavior:
 | `GET /api/user/{address}/fills?since_ms=EPOCH_MS` | Only fills at/after this epoch-ms timestamp. Same fast lane |
 | `GET /api/fills/{address}?startTime=EPOCH_MS` | HL-format fills, epoch-ms lower bound (same name/units as HL's `userFillsByTime`) |
 | `GET /api/fills/{address}?minutes=N` | HL-format fills, relative window (0-4320) |
+| `GET /api/user/{address}/flow?minutes=N` | **NEW!** Net buy/sell flow over a window — uncapped, never truncated |
+| `GET /api/user/{address}/flow?minutes=N&coin=BTC` | Net flow for one coin (adds `net_sz`) |
 
 **Time windows on fills (added 2026-08-13):**
 
@@ -374,6 +379,49 @@ curl "https://api.moondev.com/api/user/0xABC.../fills?minutes=10&limit=2000&api_
 ```
 
 See `38_fills_polling.py` for the polling pattern (window + dedupe + 503 handling).
+
+**New fills response fields (2026-08-13):**
+
+| Field | Meaning |
+|-------|---------|
+| `order` | Always `"newest_first"` — see the guarantee below |
+| `truncated` | `true` iff `limit` cut off older in-window fills. Exact, not inferred: `count == limit` with `truncated: false` means the window genuinely held exactly that many |
+| `newest_ms` / `oldest_ms` | Real time coverage of the returned page. `oldest_ms` is your paging cursor |
+| `page_summary` | PnL/volume/fees of the **returned page only**, never the whole window. Use `/flow` for window-true aggregates. `summary` remains as a deprecated alias |
+
+> ### ⚠️ Ordering guarantee
+>
+> Fills are **always returned descending (newest first)**. When `limit` caps the result, the **newest** fills are kept and the oldest dropped. This is a permanent API contract, and it is intentionally the opposite of HyperLiquid's `userFillsByTime` (which returns ascending and keeps the oldest 2000 — silently blinding recency-based consumers on busy wallets). Build recency signals against this endpoint with confidence; it will not flip for HL parity.
+
+### Net flow: `GET /api/user/{address}/flow`
+
+Answers "has this wallet net-bought or net-sold since T?" in one call. Aggregates all fills in the window server-side with **no result cap**, so the answer can never be truncated — correct even on wallets with tens of thousands of fills.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `since_ms` | integer (epoch ms) | one of these two | Window start, absolute |
+| `minutes` | number (0-4320) | one of these two | Window: last N minutes. If both given, the later (narrower) wins |
+| `coin` | string | no | Exact symbol (e.g. `BTC`). Omit for a per-coin breakdown |
+
+```json
+{
+  "address": "0x...", "since_ms": 1786650000000, "coin": "BTC",
+  "bought_sz": 1.08012, "sold_sz": 0.77272, "net_sz": 0.3074,
+  "bought_usd": 68540.12, "sold_usd": 49102.77, "net_usd": 19437.35,
+  "count": 8, "first_ms": 1786650012345, "last_ms": 1786651098765,
+  "truncated": false
+}
+```
+
+`net_sz = bought_sz - sold_sz` (positive = net buyer). `truncated` is always `false` — kept in the shape so clients can share response handling with `/fills`.
+
+Without `coin`: same envelope, plus `"coins": {"BTC": {…}, "ETH": {…}}` (each with the fields above) and USD totals only at the top level — coin sizes aren't comparable across coins, so there's no global size total.
+
+**Errors:** `400 window_required` (a window is mandatory — this endpoint answers recency questions), `503 fills_scanner_busy` (retry or fall back), `401` standard.
+
+**Window size note (measured):** aggregation is uncapped, so cost scales with fills in the window. On a very busy wallet: 60 min ~1s, 6h ~5s, 24h ~40s, and the max 4320 min window exceeded the 60s gateway limit and returned **504**. Quiet wallets are fast at any window. For multi-day flow on a busy wallet, sum several narrower windows.
+
+See `39_wallet_flow.py` for a runnable demo, including a side-by-side proving why a capped `/fills` page is not a window answer.
 
 ### HLP (HYPERLIQUIDITY PROVIDER) - Complete Reverse Engineering
 
@@ -568,6 +616,11 @@ recent = api.get_user_fills("0x...", limit=2000, minutes=10)      # FAST LANE: l
 since = api.get_user_fills("0x...", limit=2000, since_ms=1786651235303)  # epoch-ms lower bound
 hl_fills = api.get_fills("0x...", start_time=1786651235303)       # HL format, startTime
 hl_recent = api.get_fills("0x...", minutes=60)                    # HL format, relative window
+
+# === NET FLOW (uncapped, never truncated) ===
+flow = api.get_user_flow("0x...", minutes=60, coin="BTC")   # one coin, adds net_sz
+print(f"Net {'BUYER' if flow['net_sz'] > 0 else 'SELLER'}: {flow['net_sz']} BTC (${flow['net_usd']:,.2f})")
+breakdown = api.get_user_flow("0x...", minutes=60)          # all coins -> breakdown['coins']
 
 # === HLP (HYPERLIQUIDITY PROVIDER) ===
 hlp = api.get_hlp_positions()                        # Full details
@@ -801,9 +854,9 @@ Full documentation: https://moondev.com/docs
 
 ---
 
-## Get an API Key
+## Apply for an API Key
 
-Visit **https://moondev.com** to get your API key.
+Visit **https://moondev.com/apply** to apply for an API key.
 
 ---
 
@@ -830,6 +883,7 @@ MOONDEV_API_KEY=your_actual_key_here
 | `missing_api_key` / `invalid_api_key` | 401 | No key / wrong key |
 | `stream_key_expired` | 401 | Daily `moonstream_*` key rotated (~24h validity) — fetch a current key |
 | `rate_limited` | 429 | Too many requests. Also covers clients retrying dead keys: after ~5 explanatory 401s, dead-key retries collapse to 2/min per IP |
+| `window_required` | 400 | `/flow` was called with no time window. Pass `minutes=N` or `since_ms=EPOCH_MS` |
 | `fills_scanner_busy` | 503 | Fills scanner is at its concurrency limit — **retry shortly or use your fallback source. Do NOT treat as empty.** |
 | `endpoint_retired` | 410 | Permanent. See the retired endpoint list above |
 

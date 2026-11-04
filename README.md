@@ -98,8 +98,8 @@ This is the data that used to cost hedge funds millions of dollars. Now it's acc
 
 ## Quick Start
 
-### Step 1: Get Your API Key
-Visit **https://moondev.com** to get your free API key. Check out the **[full docs](https://moondev.com/docs)** for detailed guides.
+### Step 1: Apply for an API Key
+Visit **https://moondev.com/apply** to apply for an API key. Check out the **[full docs](https://moondev.com/docs)** for detailed guides.
 
 ### Step 2: Install Dependencies
 ```bash
@@ -166,6 +166,7 @@ Every example is a standalone Python script with beautiful terminal output. Run 
 | `35_btc_tick_stream.py` | Live BTC tick stream with rolling tape + JSONL sink for bots |
 | `37_liquidation_totals.py` | **NEW!** Long/short liquidation totals across 6 rolling windows (5m→4h) + squeeze detector |
 | `38_fills_polling.py` | **NEW!** Time-windowed fills polling - ~50ms for any wallet, with dedupe + 503 handling |
+| `39_wallet_flow.py` | **NEW!** Net buy/sell flow for a wallet over a window - uncapped, never truncated |
 
 See the [examples/README.md](examples/README.md) for the API reference, or visit **https://moondev.com/docs** for the full documentation.
 
@@ -382,6 +383,11 @@ for fill in fills[:5]:
 # Trade fills in a time window - ~50ms for ANY wallet, always use this when polling
 recent = api.get_fills("0x...", minutes=60)                  # HL format, last hour
 recent = api.get_user_fills("0x...", limit=2000, minutes=10) # Moon Dev format, last 10 min
+
+# Net flow - "did this wallet net-buy or net-sell?" No result cap, so never truncated.
+# Fills pages cap at 2,000 rows, so their page_summary is NOT a window answer. This is.
+flow = api.get_user_flow("0x...", minutes=60, coin="BTC")
+print(f"Net {'BUY' if flow['net_sz'] > 0 else 'SELL'}: {flow['net_sz']} BTC (${flow['net_usd']:,.2f})")
 
 # OHLCV candles
 candles = api.get_candles("BTC", interval="1m")
@@ -736,7 +742,7 @@ Wall Street had their turn. Now it's ours.
 
 ## Links
 
-- **Get API Key:** https://moondev.com
+- **Apply for an API Key:** https://moondev.com/apply
 - **Full Documentation:** https://moondev.com/docs
 - **API Reference:** [examples/README.md](examples/README.md)
 - **Hyperliquid:** https://hyperliquid.xyz

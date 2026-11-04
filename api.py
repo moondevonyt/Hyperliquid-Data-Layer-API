@@ -83,6 +83,11 @@ MOON DEV USER API (from local node - FAST!):
 - /api/user/{address}/fills             - Get historical fills (limit: 100-2000, -1 for all)
                                           (optional: ?minutes=N or ?since_ms=EPOCH_MS time
                                           window - ~50ms for ANY wallet, always use when polling)
+                                          Always newest-first; capped pages keep the NEWEST
+- /api/user/{address}/flow              - Net buy/sell flow over a window (?minutes=N or
+                                          ?since_ms=EPOCH_MS required, optional ?coin=BTC).
+                                          No result cap, so the answer is never truncated -
+                                          use this instead of summing capped fills pages
 
 MARKET DATA (replaces Hyperliquid rate-limited calls!):
 - /api/prices                           - All 224 coin prices + funding rates + open interest
@@ -139,13 +144,15 @@ Error Codes:
 - 429 rate_limited                       - Too many requests. Also covers clients retrying
                                            dead keys: after ~5 explanatory 401s, dead-key
                                            retries collapse to 2/min per IP
+- 400 window_required                    - /flow was called with no time window. Pass
+                                           minutes=N or since_ms=EPOCH_MS
 - 503 fills_scanner_busy                 - Fills scanner at its concurrency limit. Retry
                                            shortly or use your fallback source. Do NOT treat
                                            as empty - an empty fills array with HTTP 200 now
                                            always means the wallet genuinely has no fills
 - 410 endpoint_retired                   - Permanently gone (see RETIRED list above)
 
-Need an API key? https://moondev.com
+Need an API key? https://moondev.com/apply
 """
 
 import os
@@ -532,6 +539,23 @@ class MoonDevAPI:
                 - timestamp: server response time
                 - since_ms: resolved window start (None when no window was passed),
                             so you can assert the server honored your window
+                - order: always "newest_first" (permanent contract, see below)
+                - truncated: True iff limit cut off older in-window fills. EXACT, not
+                             inferred - count == limit with truncated False means the
+                             window genuinely held exactly that many
+                - newest_ms / oldest_ms: real time coverage of the returned page.
+                                         oldest_ms is your paging cursor
+                - page_summary: total_pnl / total_volume / total_fees for the RETURNED
+                                PAGE ONLY, never the whole window. For window-true
+                                aggregates use get_user_flow()
+                - summary: deprecated alias of page_summary
+
+        ORDERING GUARANTEE (Moon Dev: build recency signals on this with confidence):
+            Fills always come back descending, newest first. When limit caps the result,
+            the NEWEST fills are kept and the oldest dropped. This is a permanent API
+            contract. It is intentionally the opposite of Hyperliquid's userFillsByTime,
+            which returns ascending and keeps the OLDEST 2000 - silently blinding
+            recency-based consumers on busy wallets. This will not flip for HL parity.
 
         Raises:
             requests.HTTPError 503 with code "fills_scanner_busy" when the scanner is
@@ -565,6 +589,80 @@ class MoonDevAPI:
         # No window means a possible cold 3-day archive scan - give it room
         timeout = 30 if (minutes is not None or since_ms is not None) else 90
         response = self._get(f"/api/user/{address}/fills", params=params, timeout=timeout)
+        return response.json()
+
+    def get_user_flow(self, address, minutes=None, since_ms=None, coin=None):
+        """
+        Get NET BUY/SELL FLOW for a wallet over a time window.
+
+        Answers "has this wallet net-bought or net-sold since T?" in ONE call.
+
+        WHY THIS EXISTS (Moon Dev: this is the cap-proof one):
+            get_user_fills() caps at 2,000 rows, so on a busy wallet its page_summary
+            describes only the newest slice of your window, not the window. This
+            endpoint aggregates every fill in the window SERVER-SIDE with no result
+            cap, so the answer can never be truncated - correct even on wallets with
+            tens of thousands of fills.
+
+        Args:
+            address: Hyperliquid wallet address (e.g., "0x...")
+            minutes: Window of the last N minutes (0-4320)
+            since_ms: Absolute window start, epoch ms
+                      One of minutes/since_ms is REQUIRED. If both are given, the
+                      later (narrower) one wins.
+            coin: Exact symbol (e.g. "BTC"). Omit for a per-coin breakdown.
+
+        Returns:
+            dict with:
+                - address, timestamp, since_ms, coin (None when no coin was passed)
+                - count: fills aggregated in the window
+                - first_ms / last_ms: time span actually covered
+                - truncated: always False. Kept in the shape so you can share response
+                             handling with the fills endpoints
+                - bought_usd / sold_usd / net_usd: USD flow
+                - bought_sz / sold_sz / net_sz: size flow. ONLY when coin is given.
+                  net_sz = bought_sz - sold_sz, so positive means net buyer.
+            When coin is omitted you also get:
+                - coins: {"BTC": {bought_sz, sold_sz, net_sz, bought_usd, sold_usd,
+                                  net_usd, count}, "ETH": {...}}
+                  Top-level totals are USD only, because coin sizes are not comparable
+                  across coins (1 BTC is not 1 DOGE) so there is no global size total.
+
+        WINDOW SIZE WARNING (measured 2026-08-13 on a very busy wallet):
+            Aggregation is uncapped, so cost scales with how many fills are in the
+            window. On a heavy wallet: 60 min ~1s, 6h ~5s, 24h ~40s, and the max
+            4320 min (3 day) window hit the 60s gateway limit and came back 504.
+            Quiet wallets are fast at any window. If you need multi-day flow on a
+            busy wallet, add up several narrower windows instead of one wide call.
+
+        Raises:
+            ValueError if you pass no window (caught locally before the round trip).
+            requests.HTTPError 400 "window_required" if the server sees no window.
+            requests.HTTPError 503 "fills_scanner_busy" - retry shortly or fall back.
+            requests.HTTPError 504 on a too-wide window over a busy wallet (see above).
+
+        Example:
+            flow = api.get_user_flow("0x...", minutes=60, coin="BTC")
+            if flow['net_sz'] > 0:
+                print(f"Net BUYER of {flow['net_sz']} BTC (${flow['net_usd']:,.2f})")
+        """
+        if minutes is None and since_ms is None:
+            raise ValueError(
+                "Moon Dev: /flow needs a time window - pass minutes=N or since_ms=EPOCH_MS. "
+                "It answers recency questions, so an unbounded call has no meaning."
+            )
+
+        params = {}
+        if minutes is not None:
+            params['minutes'] = minutes
+        if since_ms is not None:
+            params['since_ms'] = since_ms
+        if coin is not None:
+            params['coin'] = coin
+
+        # 120s so a slow wide window surfaces the server's real answer (or its 504)
+        # instead of a confusing client-side timeout
+        response = self._get(f"/api/user/{address}/flow", params=params, timeout=120)
         return response.json()
 
     # ==================== POSITION SNAPSHOTS ====================
